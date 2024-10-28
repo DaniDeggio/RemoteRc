@@ -6,11 +6,11 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/10/28 03:37:31 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/10/28 03:46:03 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
-NAME	= Client
+NAME	= Rasp
 
 CC := c++
 FLAGS := -Wall -Wextra -Werror -lwiringPi
