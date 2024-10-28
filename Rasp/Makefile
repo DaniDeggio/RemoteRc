@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/10/27 21:32:07 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/10/28 03:37:31 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,7 +27,7 @@ YELLOW := \033[1;33m
 BLUE := \033[1;34m
 CYAN := \033[1;36m
 
-SRC :=	srcs/Client.cpp \
+SRC :=	srcs/Rasp.cpp \
 
 OBJS := $(addprefix $(OBJSDIR)/, $(SRC:.cpp=.o))
 
