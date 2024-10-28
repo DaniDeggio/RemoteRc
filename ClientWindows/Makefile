@@ -22,4 +22,6 @@ clean:
 	if exist $(OBJ_DIR) rmdir /s /q $(OBJ_DIR)
 	if exist $(TARGET) del $(TARGET)
 
+re : clean all
+
 .PHONY: all clean

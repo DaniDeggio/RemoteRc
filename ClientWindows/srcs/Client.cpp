@@ -30,11 +30,11 @@ int main() {
         return -1;
     }
 
-    int sock = 0;
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serv_addr;
 
     // Creazione del socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if (sock < 0) {
         std::cerr << "Errore nella creazione del socket." << std::endl;
         return -1;
     }
@@ -49,9 +49,12 @@ int main() {
     }
 
     // Connessione al server (Raspberry Pi)
+    bool connected = false;
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         std::cerr << "Connessione fallita." << std::endl;
-        return -1;
+    } else {
+        connected = true;
+        std::cout << "Connesso al Raspberry Pi." << std::endl;
     }
 
     // Ciclo principale per leggere i comandi del volante
@@ -78,15 +81,16 @@ int main() {
             paddle = 1;  // Modalità Drive
         }
 
-        // Preparazione del messaggio da inviare
-        std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " + std::to_string(brake) + " " + std::to_string(paddle);
-
-        // Invia il comando al Raspberry Pi
-        send(sock, command.c_str(), command.length(), 0);
+        // Preparazione del messaggio da inviare se connesso
+        if (connected) {
+            std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " + std::to_string(brake) + " " + std::to_string(paddle);
+            send(sock, command.c_str(), command.length(), 0);
+        }
 
         // Debug
         std::cout << "Sterzo: " << steering << " | Acceleratore: " << accelerator
-                  << " | Freno: " << brake << " | Paddle: " << paddle << std::endl;
+                  << " | Freno: " << brake << " | Paddle: " << paddle
+                  << " | Connesso: " << (connected ? "Sì" : "No") << std::endl;
 
         // Aggiungi un piccolo ritardo per non sovraccaricare la CPU
         SDL_Delay(100);  // 100 ms di ritardo
