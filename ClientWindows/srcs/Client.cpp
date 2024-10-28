@@ -8,10 +8,14 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-#define SERVER_IP "192.168.1.100"  // IP del Raspberry Pi
-#define PORT 8080                  // Porta utilizzata
+#define PORT 8080  // Porta utilizzata
 
 int main() {
+    // Chiede all'utente di inserire l'IP del Raspberry Pi
+    std::string raspberry_ip;
+    std::cout << "Inserisci l'indirizzo IP del Raspberry Pi: ";
+    std::cin >> raspberry_ip;
+
     // Inizializzazione SDL per leggere i comandi del Logitech G29
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
         std::cerr << "Impossibile inizializzare SDL: " << SDL_GetError() << std::endl;
@@ -42,8 +46,8 @@ int main() {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    // Conversione dell'IP dell'host in binario
-    if (inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr) <= 0) {
+    // Conversione dell'IP inserito dall'utente in binario
+    if (inet_pton(AF_INET, raspberry_ip.c_str(), &serv_addr.sin_addr) <= 0) {
         std::cerr << "Indirizzo IP non valido o non supportato." << std::endl;
         return -1;
     }
@@ -54,11 +58,12 @@ int main() {
         std::cerr << "Connessione fallita." << std::endl;
     } else {
         connected = true;
-        std::cout << "Connesso al Raspberry Pi." << std::endl;
+        std::cout << "Connesso al Raspberry Pi all'indirizzo IP: " << raspberry_ip << std::endl;
     }
 
     // Ciclo principale per leggere i comandi del volante
-    while (true) {
+    bool running = true;
+    while (running) {
         SDL_JoystickUpdate();
 
         // Lettura dello sterzo (asse 0)
@@ -81,6 +86,12 @@ int main() {
             paddle = 1;  // Modalità Drive
         }
 
+        // Verifica se il pulsante 9 viene premuto per interrompere il programma
+        if (SDL_JoystickGetButton(g29, 9)) {  // Pulsante 9
+            std::cout << "Pulsante Options premuto, interrompendo il programma..." << std::endl;
+            running = false;  // Interrompe il ciclo
+        }
+
         // Preparazione del messaggio da inviare se connesso
         if (connected) {
             std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " + std::to_string(brake) + " " + std::to_string(paddle);
@@ -100,6 +111,6 @@ int main() {
     SDL_JoystickClose(g29);
     closesocket(sock);
     SDL_Quit();
-    WSACleanup(); // Pulisci Winsock
+    WSACleanup();  // Pulisci Winsock
     return 0;
 }

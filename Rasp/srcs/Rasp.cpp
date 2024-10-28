@@ -2,6 +2,7 @@
 #include <wiringPi.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #define SERVO_PIN 1  // GPIO pin per il servo (sterzo)
@@ -30,6 +31,7 @@ void handleCommand(int client_socket) {
         std::cout << "Client disconnected!" << std::endl;
         return;
     }
+
     // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
     int steering, accelerator, brake, paddle;
     sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle);
@@ -60,8 +62,10 @@ void handleCommand(int client_socket) {
         }
     }
 
+    // Stampa i dati ricevuti (sterzo, acceleratore, freno, paddle)
     std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
-              << " | Brake: " << brake << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse") << std::endl;
+              << " | Brake: " << brake << " | Paddle: " << paddle 
+              << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse") << std::endl;
 }
 
 int main() {
@@ -103,7 +107,10 @@ int main() {
             continue;
         }
 
-        std::cout << "Client connected!" << std::endl;
+        // Stampa l'indirizzo IP del client connesso
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
+        std::cout << "Client connected from IP: " << client_ip << std::endl;
 
         handleCommand(client_socket);  // Gestisce il comando del client
 
