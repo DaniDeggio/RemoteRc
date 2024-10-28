@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <chrono>  // Per calcolare la latenza
 
 #define SERVO_PIN 1  // GPIO pin per il servo (sterzo)
 #define MOTOR_PIN 2  // GPIO pin per la centralina (acceleratore/freno/retromarcia)
@@ -25,47 +26,56 @@ void setupGPIO() {
 
 void handleCommand(int client_socket) {
     char buffer[1024] = {0};
-    int valread = read(client_socket, buffer, 1024);
 
-    if (valread == 0) {
-        std::cout << "Client disconnected!" << std::endl;
-        return;
-    }
+    while (true) {
+        auto start = std::chrono::high_resolution_clock::now();  // Timestamp di invio
 
-    // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
-    int steering, accelerator, brake, paddle;
-    sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle);
-
-    // Cambia modalità in base al paddle
-    if (paddle == 1) {
-        currentMode = DRIVE;
-        std::cout << "Modalità: DRIVE" << std::endl;
-    } else if (paddle == -1) {
-        currentMode = REVERSE;
-        std::cout << "Modalità: REVERSE" << std::endl;
-    }
-
-    // Controllo del servo (sterzo)
-    pwmWrite(SERVO_PIN, steering);
-
-    // Controllo del motore (acceleratore/freno/retromarcia)
-    if (brake > 0) {
-        // Se viene premuto il freno, invia il segnale PWM per frenare
-        pwmWrite(MOTOR_PIN, 1000);  // PWM per il freno (puoi regolare il valore)
-    } else {
-        if (currentMode == DRIVE) {
-            // Se siamo in modalità DRIVE, invia il segnale per accelerare in avanti
-            pwmWrite(MOTOR_PIN, accelerator);  // Imposta la velocità del motore in avanti
-        } else if (currentMode == REVERSE) {
-            // Se siamo in modalità REVERSE, invia il segnale per andare indietro
-            pwmWrite(MOTOR_PIN, 2000 - accelerator);  // Imposta la velocità in retromarcia
+        int valread = read(client_socket, buffer, 1024);
+        if (valread <= 0) {
+            std::cout << "Client disconnected!" << std::endl;
+            break;
         }
-    }
 
-    // Stampa i dati ricevuti (sterzo, acceleratore, freno, paddle)
-    std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
-              << " | Brake: " << brake << " | Paddle: " << paddle 
-              << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse") << std::endl;
+        // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
+        int steering, accelerator, brake, paddle;
+        sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle);
+
+        // Cambia modalità in base al paddle
+        if (paddle == 1) {
+            currentMode = DRIVE;
+            std::cout << "Modalità: DRIVE" << std::endl;
+        } else if (paddle == -1) {
+            currentMode = REVERSE;
+            std::cout << "Modalità: REVERSE" << std::endl;
+        }
+
+        // Controllo del servo (sterzo)
+        pwmWrite(SERVO_PIN, steering);
+
+        // Controllo del motore (acceleratore/freno/retromarcia)
+        if (brake > 0) {
+            // Se viene premuto il freno, invia il segnale PWM per frenare
+            pwmWrite(MOTOR_PIN, 1000);  // PWM per il freno (puoi regolare il valore)
+        } else {
+            if (currentMode == DRIVE) {
+                // Se siamo in modalità DRIVE, invia il segnale per accelerare in avanti
+                pwmWrite(MOTOR_PIN, accelerator);  // Imposta la velocità del motore in avanti
+            } else if (currentMode == REVERSE) {
+                // Se siamo in modalità REVERSE, invia il segnale per andare indietro
+                pwmWrite(MOTOR_PIN, 2000 - accelerator);  // Imposta la velocità in retromarcia
+            }
+        }
+
+        // Calcolo della latenza
+        auto end = std::chrono::high_resolution_clock::now();
+        auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+        // Stampa i dati ricevuti e la latenza
+        std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
+                  << " | Brake: " << brake << " | Paddle: " << paddle
+                  << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse")
+                  << " | Latency: " << latency << " ms" << std::endl;
+    }
 }
 
 int main() {
@@ -114,7 +124,7 @@ int main() {
 
         handleCommand(client_socket);  // Gestisce il comando del client
 
-        close(client_socket);
+        close(client_socket);  // Chiudi la connessione con il client
     }
 
     close(server_fd);
