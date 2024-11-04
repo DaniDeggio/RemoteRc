@@ -33,40 +33,14 @@ void startVideoStream() {
     stream_pid = fork();  // Crea un nuovo processo
     if (stream_pid == 0) {
         // Questo è il processo figlio che avvia lo streaming
-		execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); //QUESTO FUNZIONA
-		
-		
-	// 	execlp("ffmpeg", "ffmpeg", 
-    // "-f", "v4l2", 
-    // "-i", "/dev/video0", 
-    // "-pix_fmt", "yuv420p",  // Formato pixel
-    // "-s", "320x240",        // Risoluzione
-    // "-r", "30",             // Frame rate
-    // "-vcodec", "libx264",   // Codec video
-    // "-preset", "ultrafast", // Preset per ridurre la latenza
-    // "-tune", "zerolatency",  // Ottimizza per bassa latenza
-    // "-f", "mpegts", 
-    // "udp://192.168.1.25:1234", NULL);
-
-	// 	execlp("ffmpeg", "ffmpeg", 
-    // "-f", "v4l2", 
-    // "-i", "/dev/video0", 
-    // "-pix_fmt", "yuyv422",  // Specifica il formato pixel desiderato
-    // "-f", "mpegts", 
-    // "udp://192.168.1.25:1234", NULL);
-		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-preset", "ultrafast", "-tune", "zerolatency", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); 
-		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
-	// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-s", "640x480", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
+        execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
         
-		
-		// Se execlp fallisce, termina il processo figlio
+        // Se execlp fallisce, termina il processo figlio
         perror("Failed to start video stream");
         exit(EXIT_FAILURE);
-    }
-    else if (stream_pid < 0) {
+    } else if (stream_pid < 0) {
         perror("Failed to fork process for video stream");
-    }
-    else {
+    } else {
         std::cout << "Video stream started with PID: " << stream_pid << std::endl;
     }
 }
@@ -81,17 +55,21 @@ void stopVideoStream() {
     }
 }
 
+// Gestisce l'interruzione del programma
+void signalHandler(int signum) {
+    std::cout << "Interrupt signal (" << signum << ") received.\n";
+    stopVideoStream();  // Ferma lo streaming
+    exit(signum);       // Esci dal programma
+}
+
 void handleCommand(int client_socket) {
     char buffer[1024] = {0};
 
     while (true) {
-        // auto start = std::chrono::high_resolution_clock::now();  // Timestamp di invio
-
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-            stopVideoStream();  // Ferma lo streaming quando il client si disconnette
-            break;
+            break;  // Esci dal loop ma non fermare lo streaming
         }
 
         // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
@@ -112,31 +90,20 @@ void handleCommand(int client_socket) {
 
         // Controllo del motore (acceleratore/freno/retromarcia)
         if (brake > 0) {
-            // Se viene premuto il freno, invia il segnale PWM per frenare
-            pwmWrite(MOTOR_PIN, 1000);  // PWM per il freno (puoi regolare il valore)
+            pwmWrite(MOTOR_PIN, 1000);  // Segnale PWM per frenare
         } else {
             if (currentMode == DRIVE) {
-                // Se siamo in modalità DRIVE, invia il segnale per accelerare in avanti
                 pwmWrite(MOTOR_PIN, accelerator);  // Imposta la velocità del motore in avanti
             } else if (currentMode == REVERSE) {
-                // Se siamo in modalità REVERSE, invia il segnale per andare indietro
                 pwmWrite(MOTOR_PIN, 2000 - accelerator);  // Imposta la velocità in retromarcia
             }
         }
-
-        // Calcolo della latenza
-        // auto end = std::chrono::high_resolution_clock::now();
-        // auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-        // Stampa i dati ricevuti e la latenza
-        // std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
-        //           << " | Brake: " << brake << " | Paddle: " << paddle
-        //           << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse")
-        //           << " | Latency: " << latency << " ms" << std::endl;
     }
 }
 
 int main() {
+    signal(SIGINT, signalHandler);  // Registra il gestore di segnali per Ctrl+C
+
     int server_fd, client_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
@@ -169,6 +136,8 @@ int main() {
 
     setupGPIO();  // Imposta i pin GPIO
 
+    startVideoStream();  // Avvia lo streaming video all'inizio
+
     while (true) {
         if ((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
             perror("Accept failed");
@@ -180,14 +149,12 @@ int main() {
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
-        // Avvia lo streaming video
-        startVideoStream();
-
         handleCommand(client_socket);  // Gestisce il comando del client
 
         close(client_socket);  // Chiudi la connessione con il client
     }
 
+    stopVideoStream();  // Ferma lo streaming alla fine
     close(server_fd);
     return 0;
 }
