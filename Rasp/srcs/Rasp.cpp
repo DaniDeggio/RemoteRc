@@ -102,8 +102,8 @@ void handleCommand(int client_socket) {
         }
 
         // Calcolo della latenza
-        auto end = std::chrono::high_resolution_clock::now();
-        auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        // auto end = std::chrono::high_resolution_clock::now();
+        // auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         // Stampa i dati ricevuti e la latenza
         // std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
