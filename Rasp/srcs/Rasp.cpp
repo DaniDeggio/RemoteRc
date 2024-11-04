@@ -4,19 +4,22 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <chrono>  // Per calcolare la latenza
-#include <sys/wait.h>  // Per usare fork e gestire processi
-#include <signal.h>    // Per inviare segnali ai processi
+#include <chrono>
+#include <sys/wait.h>
+#include <signal.h>
+#include <thread>
+#include <mutex>
 
-#define SERVO_PIN 1  // GPIO pin per il servo (sterzo)
-#define MOTOR_PIN 2  // GPIO pin per la centralina (acceleratore/freno/retromarcia)
-#define PORT 8080    // Porta per la connessione socket
+#define SERVO_PIN 1
+#define MOTOR_PIN 2
+#define PORT 8080
 
 // Modalità di guida
 enum Mode { DRIVE, REVERSE };
-Mode currentMode = DRIVE;  // Modalità iniziale
+Mode currentMode = DRIVE;
 
 pid_t stream_pid = -1;  // Variabile per memorizzare il PID del processo di streaming
+std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
 
 void setupGPIO() {
     wiringPiSetup();
@@ -25,17 +28,14 @@ void setupGPIO() {
     
     pwmSetMode(PWM_MODE_MS);
     pwmSetRange(2000);
-    pwmSetClock(192);  // Imposta la frequenza del PWM
+    pwmSetClock(192);
 }
 
-// Funzione per avviare lo streaming video tramite ffmpeg
 void startVideoStream() {
-    stream_pid = fork();  // Crea un nuovo processo
+    std::lock_guard<std::mutex> lock(stream_mutex); // Assicura l'accesso sicuro al processo di streaming
+    stream_pid = fork();
     if (stream_pid == 0) {
-        // Questo è il processo figlio che avvia lo streaming
         execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
-        
-        // Se execlp fallisce, termina il processo figlio
         perror("Failed to start video stream");
         exit(EXIT_FAILURE);
     } else if (stream_pid < 0) {
@@ -45,21 +45,20 @@ void startVideoStream() {
     }
 }
 
-// Funzione per fermare lo streaming video
 void stopVideoStream() {
+    std::lock_guard<std::mutex> lock(stream_mutex);
     if (stream_pid > 0) {
-        kill(stream_pid, SIGTERM);  // Termina il processo di streaming
-        waitpid(stream_pid, NULL, 0);  // Aspetta che il processo finisca
+        kill(stream_pid, SIGTERM);
+        waitpid(stream_pid, NULL, 0);
         std::cout << "Video stream stopped." << std::endl;
-        stream_pid = -1;  // Resetta il PID
+        stream_pid = -1;
     }
 }
 
-// Gestisce l'interruzione del programma
 void signalHandler(int signum) {
     std::cout << "Interrupt signal (" << signum << ") received.\n";
-    stopVideoStream();  // Ferma lo streaming
-    exit(signum);       // Esci dal programma
+    stopVideoStream();
+    exit(signum);
 }
 
 void handleCommand(int client_socket) {
@@ -69,7 +68,7 @@ void handleCommand(int client_socket) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-            break;  // Esci dal loop ma non fermare lo streaming
+            break; // Esci dal loop ma non fermare lo streaming
         }
 
         // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
@@ -99,16 +98,17 @@ void handleCommand(int client_socket) {
             }
         }
     }
+
+    close(client_socket); // Chiudi la connessione con il client dopo la disconnessione
 }
 
 int main() {
-    signal(SIGINT, signalHandler);  // Registra il gestore di segnali per Ctrl+C
+    signal(SIGINT, signalHandler);
 
     int server_fd, client_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
 
-    // Impostazione del socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
@@ -118,14 +118,12 @@ int main() {
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
 
-    // Binding del socket alla porta
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("Bind failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
 
-    // Ascolto delle connessioni in arrivo
     if (listen(server_fd, 3) < 0) {
         perror("Listen failed");
         close(server_fd);
@@ -134,7 +132,7 @@ int main() {
 
     std::cout << "Server listening on port " << PORT << std::endl;
 
-    setupGPIO();  // Imposta i pin GPIO
+    setupGPIO();
 
     startVideoStream();  // Avvia lo streaming video all'inizio
 
@@ -144,14 +142,13 @@ int main() {
             continue;
         }
 
-        // Stampa l'indirizzo IP del client connesso
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
-        handleCommand(client_socket);  // Gestisce il comando del client
-
-        close(client_socket);  // Chiudi la connessione con il client
+        // Crea un thread per gestire il client
+        std::thread client_thread(handleCommand, client_socket);
+        client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
     }
 
     stopVideoStream();  // Ferma lo streaming alla fine
