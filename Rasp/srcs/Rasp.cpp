@@ -39,9 +39,21 @@ void startVideoStream() {
 		execlp("ffmpeg", "ffmpeg", 
     "-f", "v4l2", 
     "-i", "/dev/video0", 
-    "-pix_fmt", "yuyv422",  // Specifica il formato pixel desiderato
+    "-pix_fmt", "yuv420p",  // Formato pixel
+    "-s", "320x240",        // Risoluzione
+    "-r", "30",             // Frame rate
+    "-vcodec", "libx264",   // Codec video
+    "-preset", "ultrafast", // Preset per ridurre la latenza
+    "-tune", "zerolatency",  // Ottimizza per bassa latenza
     "-f", "mpegts", 
     "udp://192.168.1.25:1234", NULL);
+
+	// 	execlp("ffmpeg", "ffmpeg", 
+    // "-f", "v4l2", 
+    // "-i", "/dev/video0", 
+    // "-pix_fmt", "yuyv422",  // Specifica il formato pixel desiderato
+    // "-f", "mpegts", 
+    // "udp://192.168.1.25:1234", NULL);
 		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-preset", "ultrafast", "-tune", "zerolatency", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); 
 		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
 	// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-s", "640x480", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
