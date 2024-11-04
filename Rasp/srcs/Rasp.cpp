@@ -34,7 +34,8 @@ void startVideoStream() {
     if (stream_pid == 0) {
         // Questo è il processo figlio che avvia lo streaming
 		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); //QUESTO FUNZIONA
-	execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-s", "320x240", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
+		execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
+	// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-vcodec", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-s", "640x480", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
         // Se execlp fallisce, termina il processo figlio
         perror("Failed to start video stream");
         exit(EXIT_FAILURE);
