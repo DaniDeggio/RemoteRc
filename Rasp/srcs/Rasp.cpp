@@ -62,7 +62,7 @@ void handleCommand(int client_socket) {
     char buffer[1024] = {0};
 
     while (true) {
-        auto start = std::chrono::high_resolution_clock::now();  // Timestamp di invio
+        // auto start = std::chrono::high_resolution_clock::now();  // Timestamp di invio
 
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
