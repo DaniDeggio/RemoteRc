@@ -5,6 +5,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <chrono>  // Per calcolare la latenza
+#include <sys/wait.h>  // Per usare fork e gestire processi
+#include <signal.h>    // Per inviare segnali ai processi
 
 #define SERVO_PIN 1  // GPIO pin per il servo (sterzo)
 #define MOTOR_PIN 2  // GPIO pin per la centralina (acceleratore/freno/retromarcia)
@@ -13,6 +15,8 @@
 // Modalità di guida
 enum Mode { DRIVE, REVERSE };
 Mode currentMode = DRIVE;  // Modalità iniziale
+
+pid_t stream_pid = -1;  // Variabile per memorizzare il PID del processo di streaming
 
 void setupGPIO() {
     wiringPiSetup();
@@ -24,6 +28,34 @@ void setupGPIO() {
     pwmSetClock(192);  // Imposta la frequenza del PWM
 }
 
+// Funzione per avviare lo streaming video tramite ffmpeg
+void startVideoStream() {
+    stream_pid = fork();  // Crea un nuovo processo
+    if (stream_pid == 0) {
+        // Questo è il processo figlio che avvia lo streaming
+        execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
+        // Se execlp fallisce, termina il processo figlio
+        perror("Failed to start video stream");
+        exit(EXIT_FAILURE);
+    }
+    else if (stream_pid < 0) {
+        perror("Failed to fork process for video stream");
+    }
+    else {
+        std::cout << "Video stream started with PID: " << stream_pid << std::endl;
+    }
+}
+
+// Funzione per fermare lo streaming video
+void stopVideoStream() {
+    if (stream_pid > 0) {
+        kill(stream_pid, SIGTERM);  // Termina il processo di streaming
+        waitpid(stream_pid, NULL, 0);  // Aspetta che il processo finisca
+        std::cout << "Video stream stopped." << std::endl;
+        stream_pid = -1;  // Resetta il PID
+    }
+}
+
 void handleCommand(int client_socket) {
     char buffer[1024] = {0};
 
@@ -33,6 +65,7 @@ void handleCommand(int client_socket) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
+            stopVideoStream();  // Ferma lo streaming quando il client si disconnette
             break;
         }
 
@@ -121,6 +154,9 @@ int main() {
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
+
+        // Avvia lo streaming video
+        startVideoStream();
 
         handleCommand(client_socket);  // Gestisce il comando del client
 
