@@ -139,7 +139,7 @@ int main() {
         //           << " | Freno: " << brake << " | Paddle: " << paddle
         //           << " | Connesso: " << (connected ? "Sì" : "No") << std::endl;
 
-		SDL_Delay(5);  // 30 ms di ritardo	
+		// SDL_Delay(5);  // 30 ms di ritardo	
         // SDL_Delay(100);  // 100 ms di ritardo
     }
 
