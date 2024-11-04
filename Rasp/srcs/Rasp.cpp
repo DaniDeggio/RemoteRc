@@ -33,20 +33,20 @@ void startVideoStream() {
     stream_pid = fork();  // Crea un nuovo processo
     if (stream_pid == 0) {
         // Questo è il processo figlio che avvia lo streaming
-		// execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); //QUESTO FUNZIONA
+		execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL); //QUESTO FUNZIONA
 		
 		
-		execlp("ffmpeg", "ffmpeg", 
-    "-f", "v4l2", 
-    "-i", "/dev/video0", 
-    "-pix_fmt", "yuv420p",  // Formato pixel
-    "-s", "320x240",        // Risoluzione
-    "-r", "30",             // Frame rate
-    "-vcodec", "libx264",   // Codec video
-    "-preset", "ultrafast", // Preset per ridurre la latenza
-    "-tune", "zerolatency",  // Ottimizza per bassa latenza
-    "-f", "mpegts", 
-    "udp://192.168.1.25:1234", NULL);
+	// 	execlp("ffmpeg", "ffmpeg", 
+    // "-f", "v4l2", 
+    // "-i", "/dev/video0", 
+    // "-pix_fmt", "yuv420p",  // Formato pixel
+    // "-s", "320x240",        // Risoluzione
+    // "-r", "30",             // Frame rate
+    // "-vcodec", "libx264",   // Codec video
+    // "-preset", "ultrafast", // Preset per ridurre la latenza
+    // "-tune", "zerolatency",  // Ottimizza per bassa latenza
+    // "-f", "mpegts", 
+    // "udp://192.168.1.25:1234", NULL);
 
 	// 	execlp("ffmpeg", "ffmpeg", 
     // "-f", "v4l2", 
