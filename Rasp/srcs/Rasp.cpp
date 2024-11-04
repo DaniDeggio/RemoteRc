@@ -106,10 +106,10 @@ void handleCommand(int client_socket) {
         auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         // Stampa i dati ricevuti e la latenza
-        std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
-                  << " | Brake: " << brake << " | Paddle: " << paddle
-                  << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse")
-                  << " | Latency: " << latency << " ms" << std::endl;
+        // std::cout << "Steering: " << steering << " | Accelerator: " << accelerator
+        //           << " | Brake: " << brake << " | Paddle: " << paddle
+        //           << " | Mode: " << (currentMode == DRIVE ? "Drive" : "Reverse")
+        //           << " | Latency: " << latency << " ms" << std::endl;
     }
 }
 
