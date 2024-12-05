@@ -1,6 +1,7 @@
 #include <iostream>
 #include <wiringPi.h>
 #include <opencv2/opencv.hpp>  // Aggiungi OpenCV per la codifica e gestione immagini
+#include <raspicam/raspicam_cv.h>  // Libreria per la Pi Camera
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -48,20 +49,23 @@ void startVideoStream() {
         return;
     }
 
-    cv::VideoCapture cap(0);  // Apri la webcam
-    if (!cap.isOpened()) {
-        std::cerr << "Errore nell'apertura della webcam" << std::endl;
-        return;
-    }
-
+    // Utilizza raspicam_cv per aprire la Pi Camera
+    raspicam::RaspiCam_Cv cap;
     cap.set(cv::CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT);
+
+    if (!cap.open()) {
+        std::cerr << "Errore nell'apertura della Pi Camera" << std::endl;
+        return;
+    }
 
     cv::Mat frame;
     std::vector<uchar> buffer;
 
     while (true) {
-        cap >> frame;  // Cattura il frame
+        cap.grab();  // Cattura il frame
+        cap.retrieve(frame);
+
         if (frame.empty()) {
             std::cerr << "Errore nella cattura del frame" << std::endl;
             break;
