@@ -1,24 +1,26 @@
 #include <iostream>
 #include <wiringPi.h>
+#include <opencv2/opencv.hpp>  // Aggiungi OpenCV per la codifica e gestione immagini
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <chrono>
-#include <sys/wait.h>
-#include <signal.h>
 #include <thread>
 #include <mutex>
+#include <signal.h>
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
 #define PORT 8080
+#define VIDEO_PORT 1234  // Porta per lo streaming video
+#define FRAME_WIDTH 640
+#define FRAME_HEIGHT 480
 
 // Modalità di guida
 enum Mode { DRIVE, REVERSE };
 Mode currentMode = DRIVE;
 
-pid_t stream_pid = -1;  // Variabile per memorizzare il PID del processo di streaming
+int sock = -1;  // Socket per inviare il video
 std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
 
 void setupGPIO() {
@@ -32,26 +34,54 @@ void setupGPIO() {
 }
 
 void startVideoStream() {
-    std::lock_guard<std::mutex> lock(stream_mutex); // Assicura l'accesso sicuro al processo di streaming
-    stream_pid = fork();
-    if (stream_pid == 0) {
-        execlp("ffmpeg", "ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "mpegts", "udp://192.168.1.25:1234", NULL);
-        perror("Failed to start video stream");
-        exit(EXIT_FAILURE);
-    } else if (stream_pid < 0) {
-        perror("Failed to fork process for video stream");
-    } else {
-        std::cout << "Video stream started with PID: " << stream_pid << std::endl;
+    std::lock_guard<std::mutex> lock(stream_mutex);  // Assicura l'accesso sicuro al processo di streaming
+    
+    // Configurazione socket UDP
+    sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(VIDEO_PORT);
+    serv_addr.sin_addr.s_addr = inet_addr("192.168.1.25");
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("Errore nella creazione del socket UDP");
+        return;
+    }
+
+    cv::VideoCapture cap(0);  // Apri la webcam
+    if (!cap.isOpened()) {
+        std::cerr << "Errore nell'apertura della webcam" << std::endl;
+        return;
+    }
+
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT);
+
+    cv::Mat frame;
+    std::vector<uchar> buffer;
+
+    while (true) {
+        cap >> frame;  // Cattura il frame
+        if (frame.empty()) {
+            std::cerr << "Errore nella cattura del frame" << std::endl;
+            break;
+        }
+
+        // Comprimi il frame in JPEG per risparmiare larghezza di banda
+        cv::imencode(".jpg", frame, buffer);
+        // Invia il frame tramite UDP
+        sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
     }
 }
 
 void stopVideoStream() {
     std::lock_guard<std::mutex> lock(stream_mutex);
-    if (stream_pid > 0) {
-        kill(stream_pid, SIGTERM);
-        waitpid(stream_pid, NULL, 0);
+    if (sock > 0) {
+        close(sock);  // Chiude il socket
         std::cout << "Video stream stopped." << std::endl;
-        stream_pid = -1;
+        sock = -1;
     }
 }
 
@@ -68,7 +98,7 @@ void handleCommand(int client_socket) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-            break; // Esci dal loop ma non fermare lo streaming
+            break;
         }
 
         // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
@@ -99,7 +129,7 @@ void handleCommand(int client_socket) {
         }
     }
 
-    close(client_socket); // Chiudi la connessione con il client dopo la disconnessione
+    close(client_socket);
 }
 
 int main() {
@@ -133,7 +163,6 @@ int main() {
     std::cout << "Server listening on port " << PORT << std::endl;
 
     setupGPIO();
-
     startVideoStream();  // Avvia lo streaming video all'inizio
 
     while (true) {
@@ -146,12 +175,11 @@ int main() {
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
-        // Crea un thread per gestire il client
         std::thread client_thread(handleCommand, client_socket);
-        client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
+        client_thread.detach();
     }
 
-    stopVideoStream();  // Ferma lo streaming alla fine
+    stopVideoStream();
     close(server_fd);
     return 0;
 }
