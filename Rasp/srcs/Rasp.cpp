@@ -8,7 +8,8 @@
 #include <thread>
 #include <mutex>
 #include <signal.h>
-#include <cstdio>
+#include <libcamera/libcamera.h> // Aggiungi libcamera
+#include <libcamera/camera_manager.h>
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
@@ -49,45 +50,78 @@ void startVideoStream() {
         return;
     }
 
-    // Esegui il comando libcamera-vid per acquisire video e reindirizzalo in un file temporaneo
-    std::string command = "libcamera-vid -t 0 --inline --codec mjpeg -o - | ffmpeg -i - -f image2pipe -vcodec mjpeg -";
-    FILE* pipe = popen(command.c_str(), "r");
-    if (!pipe) {
-        std::cerr << "Errore nell'esecuzione di libcamera-vid" << std::endl;
+    // Inizializza libcamera
+    libcamera::CameraManager manager;
+    manager.start();
+
+    std::shared_ptr<libcamera::Camera> camera = manager.get("ov5647");
+    if (!camera) {
+        std::cerr << "Errore: nessuna fotocamera trovata!" << std::endl;
         return;
     }
 
-    cv::Mat frame;
+    if (camera->acquire()) {
+        std::cerr << "Errore nell'acquisizione della fotocamera" << std::endl;
+        return;
+    }
+
+    // Configura il flusso di video (stream)
+    libcamera::StreamRoles roles = { libcamera::StreamRole::VideoRecording };
+    std::unique_ptr<libcamera::CameraConfiguration> config = camera->generateConfiguration(roles);
+
+    if (!config) {
+        std::cerr << "Errore nella configurazione della fotocamera" << std::endl;
+        return;
+    }
+
+    libcamera::StreamConfiguration &streamConfig = config->at(0);
+    streamConfig.size.width = FRAME_WIDTH;
+    streamConfig.size.height = FRAME_HEIGHT;
+    config->validate();
+
+    if (camera->configure(config.get())) {
+        std::cerr << "Errore nella configurazione dello stream video" << std::endl;
+        return;
+    }
+
+    libcamera::FrameBufferAllocator *allocator = new libcamera::FrameBufferAllocator(camera);
+    allocator->allocate(streamConfig.stream());
+
+    // Attiva lo stream
+    if (camera->start()) {
+        std::cerr << "Errore nell'avvio della fotocamera" << std::endl;
+        return;
+    }
+
     std::vector<uchar> buffer;
-    char jpegBuffer[FRAME_WIDTH * FRAME_HEIGHT * 3];  // Buffer per leggere i dati JPEG
+    libcamera::Request *request = camera->createRequest();
 
+    // Inizio loop di cattura
     while (true) {
-        // Leggi i dati JPEG dal pipe
-        int bytesRead = fread(jpegBuffer, 1, sizeof(jpegBuffer), pipe);
-        if (bytesRead <= 0) {
-            std::cerr << "Errore nella lettura del frame" << std::endl;
+        camera->queueRequest(request);  // Cattura un frame
+
+        // Estrarre il frame catturato
+        libcamera::FrameBuffer *frameBuffer = request->findBuffer(streamConfig.stream());
+        if (!frameBuffer) {
+            std::cerr << "Errore nella cattura del frame" << std::endl;
             break;
         }
 
-        // Decodifica i dati JPEG in un frame OpenCV
-        std::vector<uchar> jpegData(jpegBuffer, jpegBuffer + bytesRead);
-        frame = cv::imdecode(jpegData, cv::IMREAD_COLOR);
-
-        if (frame.empty()) {
-            std::cerr << "Errore nella decodifica del frame" << std::endl;
-            break;
-        }
-
-        // Comprimi nuovamente in JPEG per l'invio via socket (puoi saltare se hai già i dati JPEG validi)
-        cv::imencode(".jpg", frame, buffer);
+        // Processa il frame catturato
+        cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, frameBuffer->planes()[0].data());
         
+        // Comprimi il frame in JPEG per risparmiare larghezza di banda
+        cv::imencode(".jpg", frame, buffer);
         // Invia il frame tramite UDP
         sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
 
         std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
     }
 
-    pclose(pipe);  // Chiudi il pipe
+    // Ferma la fotocamera
+    camera->stop();
+    camera->release();
+    manager.stop();
 }
 
 void stopVideoStream() {
