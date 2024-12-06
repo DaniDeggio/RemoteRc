@@ -36,8 +36,8 @@ void setupGPIO() {
 }
 
 void startVideoStream() {
-    std::lock_guard<std::mutex> lock(stream_mutex);  // Assicura l'accesso sicuro al processo di streaming
-    
+    std::lock_guard<std::mutex> lock(stream_mutex);
+
     // Configurazione socket UDP
     sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
@@ -50,78 +50,53 @@ void startVideoStream() {
         return;
     }
 
-    // Inizializza libcamera
-    libcamera::CameraManager manager;
-    manager.start();
-
-    std::shared_ptr<libcamera::Camera> camera = manager.get("ov5647");
+    // Apertura della camera
+    std::shared_ptr<libcamera::Camera> camera = camera_manager->get(0);  // Ottieni la camera
     if (!camera) {
-        std::cerr << "Errore: nessuna fotocamera trovata!" << std::endl;
+        std::cerr << "Errore nell'apertura della fotocamera" << std::endl;
         return;
     }
 
-    if (camera->acquire()) {
-        std::cerr << "Errore nell'acquisizione della fotocamera" << std::endl;
-        return;
-    }
+    camera->acquire();
 
-    // Configura il flusso di video (stream)
-    libcamera::StreamRoles roles = { libcamera::StreamRole::VideoRecording };
+    // Configurazione dei ruoli di streaming
+    std::vector<libcamera::StreamRole> roles = { libcamera::StreamRole::VideoRecording };
     std::unique_ptr<libcamera::CameraConfiguration> config = camera->generateConfiguration(roles);
 
-    if (!config) {
-        std::cerr << "Errore nella configurazione della fotocamera" << std::endl;
+    if (config->validate() == libcamera::CameraConfiguration::Invalid) {
+        std::cerr << "Configurazione della camera non valida" << std::endl;
         return;
     }
 
-    libcamera::StreamConfiguration &streamConfig = config->at(0);
-    streamConfig.size.width = FRAME_WIDTH;
-    streamConfig.size.height = FRAME_HEIGHT;
-    config->validate();
+    camera->configure(config.get());
 
-    if (camera->configure(config.get())) {
-        std::cerr << "Errore nella configurazione dello stream video" << std::endl;
-        return;
-    }
+    // Richiesta di frame
+    std::unique_ptr<libcamera::Request> request = camera->createRequest();
 
-    libcamera::FrameBufferAllocator *allocator = new libcamera::FrameBufferAllocator(camera);
-    allocator->allocate(streamConfig.stream());
+    // Cattura del frame e invio tramite UDP
+    for (;;) {
+        // Gestione del frame buffer
+        libcamera::FrameBuffer *frameBuffer = camera->getBuffer();
+        int fd = frameBuffer->planes()[0].fd.get();  // ottieni il file descriptor
 
-    // Attiva lo stream
-    if (camera->start()) {
-        std::cerr << "Errore nell'avvio della fotocamera" << std::endl;
-        return;
-    }
-
-    std::vector<uchar> buffer;
-    libcamera::Request *request = camera->createRequest();
-
-    // Inizio loop di cattura
-    while (true) {
-        camera->queueRequest(request);  // Cattura un frame
-
-        // Estrarre il frame catturato
-        libcamera::FrameBuffer *frameBuffer = request->findBuffer(streamConfig.stream());
-        if (!frameBuffer) {
-            std::cerr << "Errore nella cattura del frame" << std::endl;
+        void* mapped_memory = mmap(NULL, FRAME_WIDTH * FRAME_HEIGHT * 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (mapped_memory == MAP_FAILED) {
+            std::cerr << "Errore nella mappatura della memoria del frame buffer" << std::endl;
             break;
         }
 
-        // Processa il frame catturato
-        cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, frameBuffer->planes()[0].data());
-        
-        // Comprimi il frame in JPEG per risparmiare larghezza di banda
+        // Creazione del frame OpenCV
+        cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, mapped_memory);
+
+        // Comprimi il frame in JPEG
+        std::vector<uchar> buffer;
         cv::imencode(".jpg", frame, buffer);
+
         // Invia il frame tramite UDP
         sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
 
         std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
     }
-
-    // Ferma la fotocamera
-    camera->stop();
-    camera->release();
-    manager.stop();
 }
 
 void stopVideoStream() {
