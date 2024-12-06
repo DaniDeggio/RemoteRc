@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/12/06 03:11:15 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/12/06 03:52:56 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,7 +18,7 @@ RM := rm -f
 LINKFLAGS := -lwiringPi
 
 # OpenCV specific flags
-OPENCV_INCLUDE := -I/usr/include/opencv4
+OPENCV_INCLUDE := -I/usr/include/opencv4 -I/usr/include/libcamera
 OPENCV_LIBS := $(shell pkg-config --libs opencv4)
 
 OBJSDIR = objects
