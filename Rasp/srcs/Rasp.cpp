@@ -1,11 +1,6 @@
 #include <iostream>
 #include <wiringPi.h>
-#include <opencv2/opencv.hpp>
-#include <libcamera/libcamera.h>
-#include <libcamera/camera_manager.h>
-#include <libcamera/framebuffer_allocator.h>
-#include <libcamera/camera.h>
-#include <libcamera/request.h>
+#include <opencv2/opencv.hpp>  // Aggiungi OpenCV per la codifica e gestione immagini
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -40,7 +35,7 @@ void setupGPIO() {
 
 void startVideoStream() {
     std::lock_guard<std::mutex> lock(stream_mutex);  // Assicura l'accesso sicuro al processo di streaming
-
+    
     // Configurazione socket UDP
     sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
@@ -53,72 +48,32 @@ void startVideoStream() {
         return;
     }
 
-    // Inizializzazione di libcamera
-    libcamera::CameraManager camera_manager;
-    camera_manager.start();
-
-    std::shared_ptr<libcamera::Camera> camera = camera_manager.get("camera");
-    if (!camera) {
-        std::cerr << "Errore nell'acquisizione della camera" << std::endl;
+    cv::VideoCapture cap(0);  // Apri la webcam
+    if (!cap.isOpened()) {
+        std::cerr << "Errore nell'apertura della webcam" << std::endl;
         return;
     }
 
-    camera->acquire();
-    libcamera::CameraConfiguration config = camera->generateConfiguration({libcamera::StreamRole::VideoRecording});
-    libcamera::StreamConfiguration &streamConfig = config.at(0);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT);
 
-    // Configurazione della risoluzione
-    streamConfig.size.width = FRAME_WIDTH;
-    streamConfig.size.height = FRAME_HEIGHT;
-
-    if (camera->configure(&config) < 0) {
-        std::cerr << "Errore nella configurazione della camera" << std::endl;
-        return;
-    }
-
-    libcamera::FramebufferAllocator allocator(camera);
-    for (libcamera::Stream *stream : config.streams()) {
-        if (allocator.allocate(stream) < 0) {
-            std::cerr << "Errore nell'allocazione del buffer" << std::endl;
-            return;
-        }
-    }
-
-    camera->start();
-
-    cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3);
+    cv::Mat frame;
     std::vector<uchar> buffer;
 
     while (true) {
-        std::shared_ptr<libcamera::Request> request = camera->createRequest();
-        if (!request) {
-            std::cerr << "Errore nella creazione della richiesta" << std::endl;
+        cap >> frame;  // Cattura il frame
+        if (frame.empty()) {
+            std::cerr << "Errore nella cattura del frame" << std::endl;
             break;
         }
 
-        for (libcamera::Stream *stream : config.streams()) {
-            libcamera::FrameBuffer *buffer = allocator.get(stream).front();
-            request->addBuffer(stream, buffer);
-        }
-
-        camera->queueRequest(request);
-        camera->waitForRequestCompleted();  // Blocca finché il frame non è pronto
-
-        // Acquisisci i dati del frame (qui dovrebbe esserci una logica specifica per recuperare i dati dai buffer)
-        // È necessario convertire il frame buffer in una matrice OpenCV (esempio semplificato).
-
-        // Comprimi il frame in JPEG
+        // Comprimi il frame in JPEG per risparmiare larghezza di banda
         cv::imencode(".jpg", frame, buffer);
-
         // Invia il frame tramite UDP
         sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approx 30 fps
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
     }
-
-    camera->stop();
-    camera->release();
-    camera_manager.stop();
 }
 
 void stopVideoStream() {
