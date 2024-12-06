@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/10/28 03:46:03 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/12/06 04:51:36 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -27,7 +27,9 @@ YELLOW := \033[1;33m
 BLUE := \033[1;34m
 CYAN := \033[1;36m
 
-SRC :=	srcs/Rasp.cpp \
+SRC :=	srcs/Cam.cpp \
+		srcs/CarControl.cpp \
+		srcs/Main.cpp \
 
 OBJS := $(addprefix $(OBJSDIR)/, $(SRC:.cpp=.o))
 

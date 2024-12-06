@@ -1,12 +1,6 @@
 #include "../include/rrc_rasp.hpp"
 
-int main() {
-    signal(SIGINT, signalHandler);
-
-    int server_fd, client_socket;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-
+void setupSocket(int &server_fd, struct sockaddr_in &address) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
@@ -29,10 +23,11 @@ int main() {
     }
 
     std::cout << "Server listening on port " << PORT << std::endl;
+}
 
-    setupGPIO();
-
-    startVideoStream();  // Avvia lo streaming video all'inizio
+void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
+    int addrlen = sizeof(address);
+    int client_socket;
 
     while (true) {
         if ((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
@@ -47,12 +42,24 @@ int main() {
         // Crea un thread per gestire il client
         std::thread client_thread(handleCommand, client_socket);
         client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
-
-        //handleCommand(client_socket);  // Gestisce il comando del client
-        //close(client_socket);  // Chiudi la connessione con il client
     }
+}
 
+void startServer() {
+    int server_fd;
+    struct sockaddr_in address;
+
+    setupSocket(server_fd, address);  // Impostazione del socket
+    setupGPIO();  // Impostazione dei pin GPIO
+    startVideoStream();  // Avvia lo streaming video all'inizio
+    acceptClientConnections(server_fd, address);  // Accetta connessioni dai client
     stopVideoStream();  // Ferma lo streaming alla fine
     close(server_fd);
+}
+
+int main() {
+    signal(SIGINT, signalHandler);  // Gestisce l'interruzione del programma (CTRL+C)
+    
+    startServer();  // Avvia il server
     return 0;
 }

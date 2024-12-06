@@ -29,5 +29,8 @@ void handleCommand(int client_socket);
 void startVideoStream();
 void stopVideoStream();
 void signalHandler(int signum);
+void setupSocket(int &server_fd, struct sockaddr_in &address);
+void acceptClientConnections(int server_fd, struct sockaddr_in &address);
+void startServer();
 
 #endif // RRC_RASP_HPP
