@@ -10,6 +10,8 @@
 #include <signal.h>
 #include <libcamera/libcamera.h> // Aggiungi libcamera
 #include <libcamera/camera_manager.h>
+#include <sys/mman.h>  // Per mmap e le costanti come PROT_READ, PROT_WRITE, MAP_SHARED
+
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
@@ -50,10 +52,14 @@ void startVideoStream() {
         return;
     }
 
-    // Apertura della camera
-    std::shared_ptr<libcamera::Camera> camera = camera_manager->get(0);  // Ottieni la camera
+    // Crea e inizializza il camera manager
+    std::shared_ptr<libcamera::CameraManager> camera_manager = std::make_shared<libcamera::CameraManager>();
+    camera_manager->start();  // Avvia il manager
+
+    // Ottieni la prima fotocamera disponibile
+    std::shared_ptr<libcamera::Camera> camera = camera_manager->get(0);
     if (!camera) {
-        std::cerr << "Errore nell'apertura della fotocamera" << std::endl;
+        std::cerr << "Errore nell'ottenere la fotocamera" << std::endl;
         return;
     }
 
@@ -70,33 +76,33 @@ void startVideoStream() {
 
     camera->configure(config.get());
 
-    // Richiesta di frame
+    // Creazione di una richiesta
     std::unique_ptr<libcamera::Request> request = camera->createRequest();
 
-    // Cattura del frame e invio tramite UDP
-    for (;;) {
-        // Gestione del frame buffer
-        libcamera::FrameBuffer *frameBuffer = camera->getBuffer();
-        int fd = frameBuffer->planes()[0].fd.get();  // ottieni il file descriptor
+    // Ottenere un buffer dalla richiesta
+    libcamera::FrameBuffer *frameBuffer = /* Ottieni il buffer correttamente */;
 
-        void* mapped_memory = mmap(NULL, FRAME_WIDTH * FRAME_HEIGHT * 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (mapped_memory == MAP_FAILED) {
-            std::cerr << "Errore nella mappatura della memoria del frame buffer" << std::endl;
-            break;
-        }
-
-        // Creazione del frame OpenCV
-        cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, mapped_memory);
-
-        // Comprimi il frame in JPEG
-        std::vector<uchar> buffer;
-        cv::imencode(".jpg", frame, buffer);
-
-        // Invia il frame tramite UDP
-        sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
+    // Mappare la memoria del buffer
+    int fd = frameBuffer->planes()[0].fd.get();  // ottieni il file descriptor
+    void* mapped_memory = mmap(NULL, FRAME_WIDTH * FRAME_HEIGHT * 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_memory == MAP_FAILED) {
+        std::cerr << "Errore nella mappatura della memoria del frame buffer" << std::endl;
+        return;
     }
+
+    // Creazione del frame OpenCV
+    cv::Mat frame(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, mapped_memory);
+
+    // Comprimi il frame in JPEG
+    std::vector<uchar> buffer;
+    cv::imencode(".jpg", frame, buffer);
+
+    // Invia il frame tramite UDP
+    sendto(sock, buffer.data(), buffer.size(), 0, (sockaddr*)&serv_addr, sizeof(serv_addr));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(33));  // Approssima a 30 fps
+
+    // Dealloca risorse, chiudi socket, ecc.
 }
 
 void stopVideoStream() {
