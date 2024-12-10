@@ -46,12 +46,10 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
         // Crea un thread per gestire i comandi del client e avviare/fermare lo streaming
-        std::thread client_thread(handleCommand, client_socket, std::ref(address));
+        std::thread client_thread(handleCommand, std::ref(client_socket), std::ref(address));
         client_thread.detach();  // Scollega il thread per continuare ad accettare nuovi client
     }
 }
-
-
 
 void startServer() {
     int server_fd;
