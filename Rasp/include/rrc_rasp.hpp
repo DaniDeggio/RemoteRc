@@ -28,7 +28,7 @@ extern std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di st
 
 void setupGPIO();
 void handleCommand(int client_socket);
-void startVideoStream();
+void startVideoStream(int sock, struct sockaddr_in &client_addr);
 void stopVideoStream();
 void signalHandler(int signum);
 void setupSocket(int &server_fd, struct sockaddr_in &address);

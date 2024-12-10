@@ -56,9 +56,9 @@ void startServer() {
 
     setupSocket(server_fd, address);  // Impostazione del socket
     setupGPIO();  // Impostazione dei pin GPIO
-    startVideoStream();  // Avvia lo streaming video all'inizio
+    startVideoStream(server_fd, address);  // Avvia lo streaming video
     acceptClientConnections(server_fd, address);  // Accetta connessioni dai client
-    stopVideoStream();  // Ferma lo streaming alla fine
+    //stopVideoStream();  // Ferma lo streaming alla fine
     close(server_fd);
 }
 
