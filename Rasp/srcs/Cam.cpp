@@ -23,61 +23,42 @@ void encodeAndSendFrame(cv::Mat &frame, x264_t *encoder, x264_picture_t *pic_in,
     }
 }
 
+// Usa libcamera per configurare la telecamera e acquisire i frame
 void startVideoStream(int sock, struct sockaddr_in &client_addr) {
     std::lock_guard<std::mutex> lock(stream_mutex);
 
-    // Initialize OpenCV video capture (using the Raspberry Pi Camera)
-    cv::VideoCapture cap(0);
-    if (!cap.isOpened()) {
-        std::cerr << "Error opening camera!" << std::endl;
+    // Initialize libcamera camera manager and start camera
+    libcamera::CameraManager cm;
+    cm.start();
+    auto cameras = cm.cameras();
+    if (cameras.empty()) {
+        std::cerr << "No camera found!" << std::endl;
         return;
     }
 
-    // Set camera properties
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-    cap.set(cv::CAP_PROP_FPS, 30);
+    std::shared_ptr<libcamera::Camera> camera = cameras.front();
 
-    // Initialize x264 encoder
-    x264_param_t param;
-    x264_param_default_preset(&param, "ultrafast", "zerolatency");
-    param.i_threads = 1;
-    param.i_width = 640;
-    param.i_height = 480;
-    param.i_fps_num = 30;
-    param.i_fps_den = 1;
-    param.i_keyint_max = 30;
-    param.b_intra_refresh = 1;
-    param.rc.i_rc_method = X264_RC_CRF;
-    param.rc.f_rf_constant = 25;
-    param.rc.f_rf_constant_max = 35;
-    param.i_sps_id = 7;
-    param.b_repeat_headers = 1;
-    param.b_annexb = 1;
+    // Set camera parameters
+    camera->configure(libcamera::StreamRole::Video);
 
-    x264_t *encoder = x264_encoder_open(&param);
-    x264_picture_t pic_in;
-    x264_picture_alloc(&pic_in, X264_CSP_I420, 640, 480);
+    // Capture frames using libcamera
+    libcamera::Request *request = camera->createRequest();
+    auto buffer = request->buffers()[0];
 
     cv::Mat frame;
 
     while (true) {
-        // Capture a new frame
-        cap >> frame;
-        if (frame.empty()) {
-            std::cerr << "Failed to capture frame!" << std::endl;
-            break;
-        }
+        camera->capture(request);
+
+        // Convert captured frame to OpenCV Mat (if needed)
+        frame = cv::Mat(buffer->height(), buffer->width(), CV_8UC3, buffer->data());
 
         // Encode and send the frame via UDP
         encodeAndSendFrame(frame, encoder, &pic_in, sock, client_addr);
     }
 
-    // Cleanup
-    x264_picture_clean(&pic_in);
-    x264_encoder_close(encoder);
+    cm.stop();
 }
-
 void stopVideoStream() {
     // Logic to stop video stream if needed (not implemented in this version)
 }

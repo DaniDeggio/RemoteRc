@@ -14,6 +14,10 @@
 #include <mutex>
 #include <opencv2/opencv.hpp>
 #include <x264.h>
+#include <libcamera/libcamera.h>
+#include <libcamera/transform.h>
+#include <opencv2/core.hpp>
+
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
