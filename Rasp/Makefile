@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/12/10 04:23:30 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/12/10 04:57:47 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,6 +16,7 @@ CC := c++
 FLAGS := -Wall -Wextra -Werror -lwiringPi
 RM := rm -f
 LINKFLAGS := -lwiringPi
+OPENCV_FLAGS := `pkg-config --cflags --libs opencv4`
 
 OBJSDIR = objects
 
@@ -37,11 +38,11 @@ all: $(NAME)
 
 $(OBJSDIR)/%.o: %.cpp
 	mkdir -p $(@D)
-	$(CC) $(FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) $(OPENCV_FLAGS) -c $< -o $@
 
 $(NAME): $(OBJS)
 	@echo "$(GREEN)Compilation $(CLR_RMV)of $(YELLOW)$(NAME) $(CLR_RMV)..."
-	@$(CC) $(FLAGS) $(OBJS) $(LINKFLAGS) -o $(NAME)
+	@$(CC) $(FLAGS) $(OBJS) $(LINKFLAGS) $(OPENCV_FLAGS) -o $(NAME)
 	@echo "$(GREEN)$(NAME) created [0m ✔️"
 
 clean:
