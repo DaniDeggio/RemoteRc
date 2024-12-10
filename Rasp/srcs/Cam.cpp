@@ -1,7 +1,6 @@
 #include "../include/rrc_rasp.hpp"
 
-// Usa raspicam_cv per configurare la telecamera e acquisire i frame
-void startVideoStream(int sock, struct sockaddr_in &client_addr) {
+void startVideoStream(struct sockaddr_in &client_addr) {
     std::lock_guard<std::mutex> lock(stream_mutex);
 
     // Prepara il comando per avviare rpicam-vid con streaming su UDP

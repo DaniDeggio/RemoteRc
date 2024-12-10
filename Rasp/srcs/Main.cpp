@@ -44,6 +44,10 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
+        // Avvia lo streaming video al client connesso
+        std::thread stream_thread(startVideoStream, address);  // Passa l'indirizzo del client alla funzione di streaming
+        stream_thread.detach();
+
         // Crea un thread per gestire il client
         std::thread client_thread(handleCommand, client_socket);
         client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
@@ -56,9 +60,7 @@ void startServer() {
 
     setupSocket(server_fd, address);  // Impostazione del socket
     setupGPIO();  // Impostazione dei pin GPIO
-    startVideoStream(server_fd, address);  // Avvia lo streaming video
     acceptClientConnections(server_fd, address);  // Accetta connessioni dai client
-    //stopVideoStream();  // Ferma lo streaming alla fine
     close(server_fd);
 }
 
