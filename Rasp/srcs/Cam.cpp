@@ -27,38 +27,35 @@ void encodeAndSendFrame(cv::Mat &frame, x264_t *encoder, x264_picture_t *pic_in,
 void startVideoStream(int sock, struct sockaddr_in &client_addr) {
     std::lock_guard<std::mutex> lock(stream_mutex);
 
-    // Initialize libcamera camera manager and start camera
-    libcamera::CameraManager cm;
-    cm.start();
-    auto cameras = cm.cameras();
-    if (cameras.empty()) {
-        std::cerr << "No camera found!" << std::endl;
-        return;
-    }
+    // Initialize libcamera
+    std::unique_ptr<libcamera::CameraManager> cm = std::make_unique<libcamera::CameraManager>();
+    cm->start();
 
-    std::shared_ptr<libcamera::Camera> camera = cameras.front();
+    std::shared_ptr<libcamera::Camera> camera = cm->cameras()[0];
+    camera->acquire();
 
-    // Set camera parameters
-    camera->configure(libcamera::StreamRole::Video);
+    // Configure the camera
+    libcamera::StreamConfiguration cfg;
+    cfg.size = {640, 480};
+    cfg.pixelFormat = libcamera::formats::YUV420;
 
-    // Capture frames using libcamera
-    libcamera::Request *request = camera->createRequest();
-    auto buffer = request->buffers()[0];
+    camera->configure({cfg});
 
-    cv::Mat frame;
+    // Allocate buffers
+    auto request = camera->createRequest();
+    auto buffer = request->buffers()[0];  // Assuming you're using the first stream
+    auto plane = buffer->planes()[0];
 
-    while (true) {
-        camera->capture(request);
+    // OpenCV frame
+    cv::Mat frame(plane.bytesused, CV_8UC3, plane.data());
 
-        // Convert captured frame to OpenCV Mat (if needed)
-        frame = cv::Mat(buffer->height(), buffer->width(), CV_8UC3, buffer->data());
+    // Encode and send the frame via UDP
+    encodeAndSendFrame(frame, encoder, &pic_in, sock, client_addr);
 
-        // Encode and send the frame via UDP
-        encodeAndSendFrame(frame, encoder, &pic_in, sock, client_addr);
-    }
-
-    cm.stop();
+    // Release resources
+    camera->release();
 }
+
 void stopVideoStream() {
     // Logic to stop video stream if needed (not implemented in this version)
 }
