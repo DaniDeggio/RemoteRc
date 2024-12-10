@@ -14,9 +14,10 @@
 #include <mutex>
 #include <opencv2/opencv.hpp>
 #include <x264.h>
-#include <libcamera/libcamera.h>
-#include <libcamera/transform.h>
 #include <opencv2/core.hpp>
+#include <raspicam/raspicam_cv.h>  // Libreria raspicam per OpenCV
+//#include <libcamera/libcamera.h>
+//#include <libcamera/transform.h>
 
 
 #define SERVO_PIN 1

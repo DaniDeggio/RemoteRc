@@ -23,38 +23,37 @@ void encodeAndSendFrame(cv::Mat &frame, x264_t *encoder, x264_picture_t *pic_in,
     }
 }
 
-// Usa libcamera per configurare la telecamera e acquisire i frame
-void startVideoStream(int sock, struct sockaddr_in &client_addr) {
+// Usa raspicam_cv per configurare la telecamera e acquisire i frame
+void startVideoStream(int sock, struct sockaddr_in &client_addr, x264_t *encoder, x264_picture_t *pic_in) {
     std::lock_guard<std::mutex> lock(stream_mutex);
 
-    // Initialize libcamera
-    std::unique_ptr<libcamera::CameraManager> cm = std::make_unique<libcamera::CameraManager>();
-    cm->start();
+    // Inizializza RaspiCam
+    raspicam::RaspiCam_Cv camera;
+    camera.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    camera.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    camera.set(cv::CAP_PROP_FORMAT, CV_8UC3);  // Formato BGR per OpenCV
 
-    std::shared_ptr<libcamera::Camera> camera = cm->cameras()[0];
-    camera->acquire();
+    // Apri la telecamera
+    if (!camera.open()) {
+        std::cerr << "Errore nell'apertura della telecamera!" << std::endl;
+        return;
+    }
 
-    // Configure the camera
-    libcamera::StreamConfiguration cfg;
-    cfg.size = {640, 480};
-    cfg.pixelFormat = libcamera::formats::YUV420;
+    cv::Mat frame;
 
-    camera->configure({cfg});
+    while (true) {
+        // Cattura il frame dalla telecamera
+        camera.grab();
+        camera.retrieve(frame);
 
-    // Allocate buffers
-    auto request = camera->createRequest();
-    auto buffer = request->buffers()[0];  // Assuming you're using the first stream
-    auto plane = buffer->planes()[0];
+        // Codifica e invia il frame via UDP
+        encodeAndSendFrame(frame, encoder, pic_in, sock, client_addr);
+    }
 
-    // OpenCV frame
-    cv::Mat frame(plane.bytesused, CV_8UC3, plane.data());
-
-    // Encode and send the frame via UDP
-    encodeAndSendFrame(frame, encoder, &pic_in, sock, client_addr);
-
-    // Release resources
-    camera->release();
+    // Rilascia la telecamera
+    camera.release();
 }
+
 
 void stopVideoStream() {
     // Logic to stop video stream if needed (not implemented in this version)

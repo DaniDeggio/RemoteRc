@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/12/10 06:09:07 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/12/10 16:06:53 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -17,8 +17,10 @@ FLAGS := -Wall -Wextra -Werror -lwiringPi
 RM := rm -f
 LINKFLAGS := -lwiringPi -lx264
 OPENCV_FLAGS := `pkg-config --cflags --libs opencv4`
-LIBCAMERA_FLAGS := -I/usr/include/libcamera
-LIBCAMERA_LIBS := -L/usr/lib/arm-linux-gnueabihf -lstdc++ -lboost_system -lboost_filesystem -lboost_program_options
+RASPICAM_FLAGS := -I/usr/local/include
+RASPICAM_LIBS := -L/usr/local/lib -lraspicam -lraspicam_cv -lmmal -lmmal_core -lmmal_util
+# LIBCAMERA_FLAGS := -I/usr/include/libcamera
+# LIBCAMERA_LIBS := -L/usr/lib/arm-linux-gnueabihf -lstdc++ -lboost_system -lboost_filesystem -lboost_program_options
 
 OBJSDIR = objects
 
@@ -40,11 +42,11 @@ all: $(NAME)
 
 $(OBJSDIR)/%.o: %.cpp
 	mkdir -p $(@D)
-	$(CC) $(FLAGS) $(OPENCV_FLAGS) $(LIBCAMERA_FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) $(OPENCV_FLAGS) $(RASPICAM_FLAGS) -c $< -o $@
 
 $(NAME): $(OBJS)
 	@echo "$(GREEN)Compilation $(CLR_RMV)of $(YELLOW)$(NAME) $(CLR_RMV)..."
-	@$(CC) $(FLAGS) $(OBJS) $(LINKFLAGS) $(OPENCV_FLAGS) $(LIBCAMERA_LIBS) -o $(NAME)
+	@$(CC) $(FLAGS) $(OBJS) $(LINKFLAGS) $(OPENCV_FLAGS) $(RASPICAM_LIBS) -o $(NAME)
 	@echo "$(GREEN)$(NAME) created [0m ✔️"
 
 clean:
