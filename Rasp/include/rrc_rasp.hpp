@@ -13,7 +13,7 @@
 #include <thread>
 #include <mutex>
 #include <cstdlib>  // Per usare system()
-
+#include <atomic>  // Aggiungi questa libreria per usare atomic
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
@@ -25,6 +25,7 @@ extern Mode currentMode;
 
 extern pid_t stream_pid;  // Variabile per memorizzare il PID del processo di streaming
 extern std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
+extern std::atomic<bool> stop_streaming;
 
 void setupGPIO();
 void handleCommand(int client_socket);
