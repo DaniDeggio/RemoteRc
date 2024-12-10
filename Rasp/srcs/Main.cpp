@@ -1,5 +1,10 @@
 #include "../include/rrc_rasp.hpp"
 
+// Definizione delle variabili globali
+Mode currentMode = DRIVE;
+pid_t stream_pid = -1;
+std::mutex stream_mutex;
+
 void setupSocket(int &server_fd, struct sockaddr_in &address) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Socket creation failed");

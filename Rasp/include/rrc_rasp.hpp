@@ -12,6 +12,8 @@
 #include <signal.h>
 #include <thread>
 #include <mutex>
+#include <opencv2/opencv.hpp>
+#include <x264.h>
 
 #define SERVO_PIN 1
 #define MOTOR_PIN 2
@@ -19,10 +21,10 @@
 
 // Modalità di guida
 enum Mode { DRIVE, REVERSE };
-Mode currentMode = DRIVE;
+extern Mode currentMode;
 
-pid_t stream_pid = -1;  // Variabile per memorizzare il PID del processo di streaming
-std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
+extern pid_t stream_pid;  // Variabile per memorizzare il PID del processo di streaming
+extern std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
 
 void setupGPIO();
 void handleCommand(int client_socket);
