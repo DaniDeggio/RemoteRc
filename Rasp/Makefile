@@ -6,7 +6,7 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/12/10 04:57:47 by dde-giov         ###   ########.fr        #
+#    Updated: 2024/12/10 05:01:37 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -15,7 +15,7 @@ NAME	= Rasp
 CC := c++
 FLAGS := -Wall -Wextra -Werror -lwiringPi
 RM := rm -f
-LINKFLAGS := -lwiringPi
+LINKFLAGS := -lwiringPi -lx264
 OPENCV_FLAGS := `pkg-config --cflags --libs opencv4`
 
 OBJSDIR = objects
