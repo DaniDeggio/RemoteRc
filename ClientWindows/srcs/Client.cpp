@@ -6,9 +6,6 @@
 #include <unistd.h>
 #include <SDL2/SDL.h>
 #include <thread>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -16,34 +13,12 @@
 #define VIDEO_PORT 1234  // Porta per il flusso video
 
 // Funzione per gestire lo streaming video tramite ffplay
-pid_t ffplay_pid = -1;  // PID del processo ffplay
-
 void streamVideo(const std::string& raspberry_ip) {
     std::string command = "ffplay -fflags nobuffer -flags low_delay -framedrop udp://" + raspberry_ip + ":" + std::to_string(VIDEO_PORT);
+    int result = system(command.c_str());
 
-    // Fork per eseguire ffplay
-    ffplay_pid = fork();
-    if (ffplay_pid == -1) {
-        std::cerr << "Errore nella creazione del processo ffplay." << std::endl;
-        return;
-    } else if (ffplay_pid == 0) {
-        // Codice del processo figlio (streaming video con ffplay)
-        int result = system(command.c_str());
-        if (result == -1) {
-            std::cerr << "Errore nell'esecuzione del comando ffplay." << std::endl;
-        }
-        exit(0);  // Termina il processo figlio dopo aver eseguito ffplay
-    }
-}
-
-void stopVideoStream() {
-    if (ffplay_pid != -1) {
-        // Invia un segnale SIGTERM per fermare il processo figlio che esegue ffplay
-        std::cout << "Terminando il processo ffplay con PID: " << ffplay_pid << std::endl;
-        kill(ffplay_pid, SIGTERM);  // Invia SIGTERM al processo ffplay
-        waitpid(ffplay_pid, nullptr, 0);  // Attendi la terminazione del processo ffplay
-        ffplay_pid = -1;  // Reset del PID
-        std::cout << "Streaming video terminato." << std::endl;
+    if (result == -1) {
+        std::cerr << "Errore nell'esecuzione del comando ffplay." << std::endl;
     }
 }
 
@@ -94,7 +69,8 @@ int main() {
     }
 
     // Avvia il thread per lo streaming video tramite ffplay
-    streamVideo(raspberry_ip);
+    std::thread videoThread(streamVideo, raspberry_ip);
+    videoThread.detach();
 
     // Ciclo principale per leggere i comandi del volante
     bool running = true;
@@ -122,7 +98,7 @@ int main() {
             running = false;
         }
 
-        SDL_Event e;
+		SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 running = false;  // Esci dal ciclo principale
@@ -130,7 +106,7 @@ int main() {
                 std::cout << "Tasto ESC premuto, interrompendo il programma..." << std::endl;
                 running = false;  // Esci dal ciclo principale
             }
-        }
+		}
 
         if (connected) {
             std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " +
@@ -138,9 +114,6 @@ int main() {
             send(sock, command.c_str(), command.length(), 0);
         }
     }
-
-    // Ferma lo streaming quando il programma termina
-    stopVideoStream();
 
     SDL_JoystickClose(g29);
     closesocket(sock);
