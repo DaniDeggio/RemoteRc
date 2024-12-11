@@ -45,7 +45,7 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
         // Avvia lo streaming video al client connesso
-        std::thread stream_thread(startVideoStream, address);  // Passa l'indirizzo del client alla funzione di streaming
+        std::thread stream_thread(startVideoStream, std::ref(address));  
         stream_thread.detach();
 
         // Crea un thread per gestire il client
@@ -53,6 +53,7 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
     }
 }
+
 
 void startServer() {
     int server_fd;
