@@ -4,7 +4,6 @@
 Mode currentMode = DRIVE;
 pid_t stream_pid = -1;
 std::mutex stream_mutex;
-std::atomic<bool> stop_streaming(false);
 
 void setupSocket(int &server_fd, struct sockaddr_in &address) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -45,13 +44,15 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
-        // Crea un thread per gestire i comandi del client e avviare/fermare lo streaming
-        std::thread client_thread(handleCommand, client_socket, std::ref(address));
-        client_thread.detach();  // Scollega il thread per continuare ad accettare nuovi client
+        // Avvia lo streaming video al client connesso
+        std::thread stream_thread(startVideoStream, address);  // Passa l'indirizzo del client alla funzione di streaming
+        stream_thread.detach();
+
+        // Crea un thread per gestire il client
+        std::thread client_thread(handleCommand, client_socket);
+        client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
     }
 }
-
-
 
 void startServer() {
     int server_fd;

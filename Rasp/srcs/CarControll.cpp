@@ -1,28 +1,23 @@
 #include "../include/rrc_rasp.hpp"
 
 void setupGPIO() {
-	wiringPiSetup();
-	pinMode(SERVO_PIN, PWM_OUTPUT);
-	pinMode(MOTOR_PIN, PWM_OUTPUT);
-	
-	pwmSetMode(PWM_MODE_MS);
-	pwmSetRange(2000);
-	pwmSetClock(192);
+    wiringPiSetup();
+    pinMode(SERVO_PIN, PWM_OUTPUT);
+    pinMode(MOTOR_PIN, PWM_OUTPUT);
+    
+    pwmSetMode(PWM_MODE_MS);
+    pwmSetRange(2000);
+    pwmSetClock(192);
 }
 
-void handleCommand(int &client_socket, struct sockaddr_in &client_addr) {
+void handleCommand(int client_socket) {
     char buffer[1024] = {0};
-
-    // Avvia lo streaming video quando il client si connette
-    std::thread stream_thread(startVideoStream, std::ref(client_addr));
-    stream_thread.detach();  // Scollega il thread di streaming per continuare l'esecuzione indipendentemente
 
     while (true) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-            stopVideoStream();  // Ferma lo streaming quando il client si disconnette
-            break;  // Esci dal loop per chiudere la connessione
+            break; // Esci dal loop ma non fermare lo streaming
         }
 
         // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
@@ -53,5 +48,5 @@ void handleCommand(int &client_socket, struct sockaddr_in &client_addr) {
         }
     }
 
-    close(client_socket);  // Chiudi la connessione con il client
+    close(client_socket); // Chiudi la connessione con il client dopo la disconnessione
 }
