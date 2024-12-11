@@ -12,45 +12,14 @@
 #define PORT 8080  // Porta utilizzata
 #define VIDEO_PORT 1234  // Porta per il flusso video
 
-// Funzione per gestire lo streaming video
+// Funzione per gestire lo streaming video tramite ffplay
 void streamVideo(const std::string& raspberry_ip) {
-    std::string command = "ffmpeg -i udp://" + raspberry_ip + ":" + std::to_string(VIDEO_PORT) +
-                          " -f rawvideo -pix_fmt rgb24 pipe:1";
-    FILE* pipe = _popen(command.c_str(), "rb");
+    std::string command = "ffplay -fflags nobuffer -flags low_delay -framedrop udp://" + raspberry_ip + ":" + std::to_string(VIDEO_PORT);
+    int result = system(command.c_str());
 
-    if (!pipe) {
-        std::cerr << "Errore nell'aprire la pipe." << std::endl;
-        return;
+    if (result == -1) {
+        std::cerr << "Errore nell'esecuzione del comando ffplay." << std::endl;
     }
-
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_Window* window = SDL_CreateWindow("Video Stream", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 640, 480);
-
-    uint8_t* buffer = new uint8_t[640 * 480 * 3]; // Buffer per RGB (3 byte per pixel)
-
-    while (true) {
-        size_t bytesRead = fread(buffer, 1, 640 * 480 * 3, pipe);  // Legge un frame
-
-        if (bytesRead != 640 * 480 * 3) {
-            std::cerr << "Errore nella lettura del frame o fine dello stream." << std::endl;
-            break;
-        }
-
-        SDL_UpdateTexture(texture, nullptr, buffer, 640 * 3);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-        SDL_RenderPresent(renderer);
-        // SDL_Delay(30); // Aggiorna il frame a circa 33 fps
-    }
-
-    delete[] buffer;
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    _pclose(pipe);
 }
 
 int main() {
@@ -99,7 +68,7 @@ int main() {
         std::cout << "Connesso al Raspberry Pi all'indirizzo IP: " << raspberry_ip << std::endl;
     }
 
-    // Avvia il thread per lo streaming video
+    // Avvia il thread per lo streaming video tramite ffplay
     std::thread videoThread(streamVideo, raspberry_ip);
     videoThread.detach();
 
@@ -134,13 +103,6 @@ int main() {
                                   std::to_string(brake) + " " + std::to_string(paddle);
             send(sock, command.c_str(), command.length(), 0);
         }
-
-        // std::cout << "Sterzo: " << steering << " | Acceleratore: " << accelerator
-        //           << " | Freno: " << brake << " | Paddle: " << paddle
-        //           << " | Connesso: " << (connected ? "Sì" : "No") << std::endl;
-
-		// SDL_Delay(5);  // 30 ms di ritardo	
-        // SDL_Delay(100);  // 100 ms di ritardo
     }
 
     SDL_JoystickClose(g29);
