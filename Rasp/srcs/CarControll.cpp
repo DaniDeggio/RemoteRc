@@ -17,7 +17,11 @@ void handleCommand(int client_socket) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-			stopVideoStream();
+            
+			// Protezione del mutex prima di fermare lo streaming
+            std::lock_guard<std::mutex> lock(stream_mutex);
+            stopVideoStream();
+			
             break;
         }
 

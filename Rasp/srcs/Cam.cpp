@@ -41,12 +41,14 @@ void startVideoStream(struct sockaddr_in &client_addr) {
 }
 
 void stopVideoStream() {
+	std::lock_guard<std::mutex> lock(stream_mutex);
+
     stop_streaming.store(true);  // Imposta il flag di stop a true
 
     // Se il processo di streaming è attivo, invia un segnale di terminazione
     if (stream_pid != -1) {
         std::cout << "Invio del segnale di terminazione al processo di streaming con PID: " << stream_pid << std::endl;
-        kill(stream_pid, SIGKILL);  // Invia SIGTERM al processo di streaming
+        kill(stream_pid, SIGTERM);  // Invia SIGTERM al processo di streaming
         waitpid(stream_pid, nullptr, 0);  // Attendi la terminazione del processo figlio
         stream_pid = -1;  // Resetta il PID del processo
         std::cout << "Streaming terminato." << std::endl;
