@@ -5,8 +5,7 @@ void startVideoStream(struct sockaddr_in &client_addr) {
 
     // Prepara il comando per avviare rpicam-vid con streaming su UDP
     std::string command = "rpicam-vid -t 0 --inline -o udp://" + 
-                          std::string(inet_ntoa(client_addr.sin_addr)) + ":" + 
-                          std::to_string(ntohs(client_addr.sin_port));
+                          std::string(inet_ntoa(client_addr.sin_addr)) + ":1234";
 	std::cout << "Address: " << inet_ntoa(client_addr.sin_addr) << std::endl;
 	std::cout << "Port: " << ntohs(client_addr.sin_port) << std::endl;
 
