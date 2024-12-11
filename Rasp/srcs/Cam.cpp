@@ -6,31 +6,24 @@ void startVideoStream(struct sockaddr_in &client_addr) {
     // Prepara il comando per avviare rpicam-vid con streaming su UDP
     std::string command = "rpicam-vid -t 0 --inline -o udp://" + 
                           std::string(inet_ntoa(client_addr.sin_addr)) + ":1234";
+	std::cout << "Address: " << inet_ntoa(client_addr.sin_addr) << std::endl;
+	std::cout << "Port: " << ntohs(client_addr.sin_port) << std::endl;
 
-    // Crea un processo figlio per eseguire rpicam-vid
-    stream_pid = fork();
-    if (stream_pid == 0) {
-        // Codice del processo figlio: esegue il comando rpicam-vid
-        execl("/bin/sh", "sh", "-c", command.c_str(), (char *)nullptr);
-        exit(0);  // Termina il processo figlio quando il comando termina
-    } else if (stream_pid < 0) {
-        std::cerr << "Errore nella creazione del processo per rpicam-vid!" << std::endl;
+    // Esegui il comando per avviare il flusso
+    int result = system(command.c_str());
+    if (result != 0) {
+        std::cerr << "Errore nell'esecuzione del comando rpicam-vid!" << std::endl;
+        return;
     }
 
-    // Controlla continuamente lo stato del flag di stop_streaming
     while (!stop_streaming.load()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // Attendi 1000 ms
+        // Continuare lo streaming fino a quando il flag non è impostato su true
+        // Puoi aggiungere qui logica aggiuntiva per gestire il loop dello streaming
     }
 
-    // Interrompi lo streaming fermando il processo figlio
-    if (stream_pid > 0) {
-        kill(stream_pid, SIGTERM);  // Invia segnale di terminazione al processo figlio
-        waitpid(stream_pid, nullptr, 0);  // Attendi la terminazione del processo figlio
-        stream_pid = -1;  // Reset del PID
-        std::cout << "Streaming terminato." << std::endl;
-    }
+    // Codice per fermare lo streaming (se necessario)
+    std::cout << "Streaming terminato." << std::endl;
 }
-
 void stopVideoStream() {
     stop_streaming.store(true);  // Imposta il flag di stop a true
 }

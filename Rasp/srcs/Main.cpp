@@ -45,8 +45,6 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
         std::cout << "Client connected from IP: " << client_ip << std::endl;
 
-        stop_streaming.store(false);  // Reset il flag di streaming
-
         // Avvia lo streaming video al client connesso
         std::thread stream_thread(startVideoStream, std::ref(address));  
         stream_thread.detach();
@@ -56,6 +54,7 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
         client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
     }
 }
+
 
 void startServer() {
     int server_fd;
