@@ -1,8 +1,6 @@
 #include "../include/rrc_rasp.hpp"
 
 void startVideoStream(struct sockaddr_in &client_addr) {
-    std::lock_guard<std::mutex> lock(stream_mutex);
-
     // Prepara il comando per avviare rpicam-vid con streaming su UDP
     std::string command = "rpicam-vid -t 0 --inline -o udp://" + 
                           std::string(inet_ntoa(client_addr.sin_addr)) + ":1234";
