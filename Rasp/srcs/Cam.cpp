@@ -9,32 +9,48 @@ void startVideoStream(struct sockaddr_in &client_addr) {
     std::cout << "Address: " << inet_ntoa(client_addr.sin_addr) << std::endl;
     std::cout << "Port: " << ntohs(client_addr.sin_port) << std::endl;
 
-    // Esegui il comando con popen()
-    stream_proc = popen(command.c_str(), "r");
-    if (!stream_proc) {
-        std::cerr << "Errore nell'esecuzione del comando rpicam-vid!" << std::endl;
+    // Crea un nuovo processo per lo streaming
+    stream_pid = fork();
+
+    if (stream_pid == -1) {
+        // Se fork fallisce
+        std::cerr << "Errore nella creazione del processo di streaming!" << std::endl;
         return;
-    }
+    } else if (stream_pid == 0) {
+        // Codice del processo figlio (streaming)
+        // Usa execlp per eseguire il comando di streaming
+        execlp("rpicam-vid", "rpicam-vid", "-t", "0", "--inline", "-o", 
+               ("udp://" + std::string(inet_ntoa(client_addr.sin_addr)) + ":1234").c_str(), (char*)NULL);
 
-    // Loop per continuare lo streaming finché stop_streaming non diventa true
-    while (!stop_streaming.load()) {
-        // Aggiungi logica per gestire lo streaming (se necessario)
-        // Potresti monitorare eventuali output del comando qui se necessario
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Attesa per simulare il ciclo di controllo
-    }
+        // Se execlp fallisce
+        std::cerr << "Errore nell'esecuzione del comando di streaming!" << std::endl;
+        exit(EXIT_FAILURE);
+    } else {
+        // Codice del processo padre (continua l'esecuzione normalmente)
+        std::cout << "Streaming avviato con PID: " << stream_pid << std::endl;
 
-    // Chiudi il processo di streaming
-    if (stream_proc) {
-        std::cout << "Terminazione del processo di streaming..." << std::endl;
-        pclose(stream_proc);  // Termina il processo avviato con popen()
-        stream_proc = nullptr;
-    }
+        // Loop per controllare lo stato del flag di stop
+        while (!stop_streaming.load()) {
+            // Attesa per evitare un ciclo troppo rapido
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
 
-    std::cout << "Streaming terminato." << std::endl;
+        // Quando lo streaming deve essere interrotto
+        stopVideoStream();  // Ferma lo streaming
+    }
 }
 
 void stopVideoStream() {
     stop_streaming.store(true);  // Imposta il flag di stop a true
+
+    // Se il processo di streaming è attivo, invia un segnale di terminazione
+    if (stream_pid != -1) {
+        std::cout << "Invio del segnale di terminazione al processo di streaming con PID: " << stream_pid << std::endl;
+        kill(stream_pid, SIGTERM);  // Invia SIGTERM al processo di streaming
+        waitpid(stream_pid, nullptr, 0);  // Attendi la terminazione del processo figlio
+        stream_pid = -1;  // Resetta il PID del processo
+        std::cout << "Streaming terminato." << std::endl;
+    }
 }
 
 void signalHandler(int signum) {
