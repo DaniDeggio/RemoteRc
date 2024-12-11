@@ -5,6 +5,7 @@ Mode currentMode = DRIVE;
 pid_t stream_pid = -1;
 std::mutex stream_mutex;
 std::atomic<bool> stop_streaming(false);
+FILE* stream_proc = nullptr;  // Pointer per popen()
 
 void setupSocket(int &server_fd, struct sockaddr_in &address) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {

@@ -26,6 +26,7 @@ extern Mode currentMode;
 extern pid_t stream_pid;  // Variabile per memorizzare il PID del processo di streaming
 extern std::mutex stream_mutex; // Mutex per gestire l'accesso al processo di streaming
 extern std::atomic<bool> stop_streaming;
+extern FILE* stream_proc;  // Pointer per popen()
 
 void setupGPIO();
 void handleCommand(int client_socket);

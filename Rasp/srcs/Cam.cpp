@@ -6,24 +6,33 @@ void startVideoStream(struct sockaddr_in &client_addr) {
     // Prepara il comando per avviare rpicam-vid con streaming su UDP
     std::string command = "rpicam-vid -t 0 --inline -o udp://" + 
                           std::string(inet_ntoa(client_addr.sin_addr)) + ":1234";
-	std::cout << "Address: " << inet_ntoa(client_addr.sin_addr) << std::endl;
-	std::cout << "Port: " << ntohs(client_addr.sin_port) << std::endl;
+    std::cout << "Address: " << inet_ntoa(client_addr.sin_addr) << std::endl;
+    std::cout << "Port: " << ntohs(client_addr.sin_port) << std::endl;
 
-    // Esegui il comando per avviare il flusso
-    int result = system(command.c_str());
-    if (result != 0) {
+    // Esegui il comando con popen()
+    stream_proc = popen(command.c_str(), "r");
+    if (!stream_proc) {
         std::cerr << "Errore nell'esecuzione del comando rpicam-vid!" << std::endl;
         return;
     }
 
+    // Loop per continuare lo streaming finché stop_streaming non diventa true
     while (!stop_streaming.load()) {
-        // Continuare lo streaming fino a quando il flag non è impostato su true
-        // Puoi aggiungere qui logica aggiuntiva per gestire il loop dello streaming
+        // Aggiungi logica per gestire lo streaming (se necessario)
+        // Potresti monitorare eventuali output del comando qui se necessario
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Attesa per simulare il ciclo di controllo
     }
 
-    // Codice per fermare lo streaming (se necessario)
+    // Chiudi il processo di streaming
+    if (stream_proc) {
+        std::cout << "Terminazione del processo di streaming..." << std::endl;
+        pclose(stream_proc);  // Termina il processo avviato con popen()
+        stream_proc = nullptr;
+    }
+
     std::cout << "Streaming terminato." << std::endl;
 }
+
 void stopVideoStream() {
     stop_streaming.store(true);  // Imposta il flag di stop a true
 }
