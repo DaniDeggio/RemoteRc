@@ -17,7 +17,8 @@ void handleCommand(int client_socket) {
         int valread = read(client_socket, buffer, 1024);
         if (valread <= 0) {
             std::cout << "Client disconnected!" << std::endl;
-            break; // Esci dal loop ma non fermare lo streaming
+            stopVideoStream();  // Ferma lo streaming quando il client si disconnette
+            break;
         }
 
         // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
