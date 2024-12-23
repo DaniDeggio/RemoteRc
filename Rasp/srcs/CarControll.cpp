@@ -15,8 +15,26 @@ void setupGPIO() {
     pwmSetClock(192);   // Imposta la frequenza del PWM
 }
 
+void initializeControlSystems() {
+    // Inizializza il servo motore (sterzo) e il motore (acceleratore/freno) con i valori di base
+    std::cout << "Inizializzazione del sistema di controllo..." << std::endl;
+
+    // Impostiamo il servo a una posizione neutra (ad esempio, 1500 microsecondi)
+    pwmWrite(SERVO_PIN, 1500); // posizione neutra per il servo
+    delay(500); // Attesa per stabilizzare il servo
+
+    // Impostiamo il motore a velocità zero (stop)
+    pwmWrite(MOTOR_PIN, 0); // Il motore è fermo
+    delay(500); // Attesa per stabilizzare il motore
+
+    std::cout << "Sistema di controllo inizializzato." << std::endl;
+}
+
 void handleCommand(int client_socket) {
     char buffer[1024] = {0};
+
+    // Inizializza i sistemi di controllo prima di accettare i comandi
+    initializeControlSystems();
 
     while (true) {
         int valread = read(client_socket, buffer, 1024);
@@ -35,11 +53,8 @@ void handleCommand(int client_socket) {
                   << ", Freno: " << brake << ", Paddle: " << paddle << std::endl;
 
         // Mappatura dei valori ricevuti per il PWM
-        // Mappatura dello sterzo (0-1999) -> (500-2500) per il servo
         int steeringPWM = map(steering, 0, 1999, 500, 2500);
-        // Mappatura dell'acceleratore (0-1999) -> (0-1024) per il motore
         int motorPWM = map(accelerator, 0, 1999, 0, 1024);
-        // Mappatura del freno (0-1999) -> (0-1024) per il motore (0 è freno massimo)
         int brakePWM = map(brake, 0, 1999, 0, 1024);
 
         // Cambia modalità in base al paddle

@@ -55,7 +55,6 @@ void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
     }
 }
 
-
 void startServer() {
     int server_fd;
     struct sockaddr_in address;
