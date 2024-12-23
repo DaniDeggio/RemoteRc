@@ -6,19 +6,56 @@
 #include <unistd.h>
 #include <SDL2/SDL.h>
 #include <thread>
+#include <mutex>
 
 #pragma comment(lib, "ws2_32.lib")
 
 #define PORT 8080  // Porta utilizzata
 #define VIDEO_PORT 1234  // Porta per il flusso video
 
+std::mutex commandMutex;
+bool running = true;  // Variabile globale per il controllo del ciclo
+
 // Funzione per gestire lo streaming video tramite ffplay
 void streamVideo(const std::string& raspberry_ip) {
-    std::string command = "ffplay -fflags nobuffer -flags low_delay -framedrop udp://" + raspberry_ip + ":" + std::to_string(VIDEO_PORT);
-    int result = system(command.c_str());
+    std::string command = "ffplay -fflags nobuffer -flags low_delay -framedrop udp://" + raspberry_ip + ":" + std::to_string(VIDEO_PORT) + " > NUL 2>&1";
+    FILE* result = popen(command.c_str(), "r");
 
-    if (result == -1) {
+    if (!result) {
         std::cerr << "Errore nell'esecuzione del comando ffplay." << std::endl;
+    }
+}
+
+// Funzione per inviare comandi al Raspberry Pi in un thread separato
+void handleCommands(int sock, SDL_Joystick* g29) {
+    while (running) {
+        std::lock_guard<std::mutex> lock(commandMutex);  // Lock per evitare problemi di concorrenza
+        SDL_JoystickUpdate();
+
+        int steering = SDL_JoystickGetAxis(g29, 0);  // Asse dello sterzo
+        steering = (steering + 32767) / 32.767;      // Normalizza tra 0 e 2000
+
+        int accelerator = SDL_JoystickGetAxis(g29, 2);  // Acceleratore (pedale destro)
+        accelerator = (accelerator + 32767) / 32.767;
+
+        int brake = SDL_JoystickGetAxis(g29, 3);  // Freno (pedale sinistro)
+        brake = (brake + 32767) / 32.767;
+
+        int paddle = 0;
+        if (SDL_JoystickGetButton(g29, 4)) {
+            paddle = -1;  // Modalità Reverse
+        } else if (SDL_JoystickGetButton(g29, 5)) {
+            paddle = 1;  // Modalità Drive
+        }
+
+        if (sock > 0) {
+            std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " +
+                                  std::to_string(brake) + " " + std::to_string(paddle);
+            std::cout << command << std::endl;
+            send(sock, command.c_str(), command.length(), 0);
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Evita di saturare la CPU
     }
 }
 
@@ -68,37 +105,17 @@ int main() {
         std::cout << "Connesso al Raspberry Pi all'indirizzo IP: " << raspberry_ip << std::endl;
     }
 
+    // Avvia il thread per inviare i comandi al Raspberry Pi
+    std::thread commandThread(handleCommands, sock, g29);
+    commandThread.detach();
+
     // Avvia il thread per lo streaming video tramite ffplay
     std::thread videoThread(streamVideo, raspberry_ip);
     videoThread.detach();
 
-    // Ciclo principale per leggere i comandi del volante
-    bool running = true;
+    // Ciclo principale per gestire gli eventi
     while (running) {
-        SDL_JoystickUpdate();
-
-        int steering = SDL_JoystickGetAxis(g29, 0);  // Asse dello sterzo
-        steering = (steering + 32767) / 32.767;      // Normalizza tra 0 e 2000
-
-        int accelerator = SDL_JoystickGetAxis(g29, 2);  // Acceleratore (pedale destro)
-        accelerator = (accelerator + 32767) / 32.767;
-
-        int brake = SDL_JoystickGetAxis(g29, 3);  // Freno (pedale sinistro)
-        brake = (brake + 32767) / 32.767;
-
-        int paddle = 0;
-        if (SDL_JoystickGetButton(g29, 4)) {
-            paddle = -1;  // Modalità Reverse
-        } else if (SDL_JoystickGetButton(g29, 5)) {
-            paddle = 1;  // Modalità Drive
-        }
-
-        if (SDL_JoystickGetButton(g29, 9)) {
-            std::cout << "Pulsante Options premuto, interrompendo il programma..." << std::endl;
-            running = false;
-        }
-
-		SDL_Event e;
+        SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 running = false;  // Esci dal ciclo principale
@@ -106,15 +123,12 @@ int main() {
                 std::cout << "Tasto ESC premuto, interrompendo il programma..." << std::endl;
                 running = false;  // Esci dal ciclo principale
             }
-		}
-
-        if (connected) {
-            std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " +
-                                  std::to_string(brake) + " " + std::to_string(paddle);
-            send(sock, command.c_str(), command.length(), 0);
         }
     }
 
+    // Chiudi tutto correttamente
+    running = false;
+    commandThread.join();  // Attende la chiusura del thread dei comandi
     SDL_JoystickClose(g29);
     closesocket(sock);
     SDL_Quit();
