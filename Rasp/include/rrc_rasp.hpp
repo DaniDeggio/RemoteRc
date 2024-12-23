@@ -36,5 +36,6 @@ void signalHandler(int signum);
 void setupSocket(int &server_fd, struct sockaddr_in &address);
 void acceptClientConnections(int server_fd, struct sockaddr_in &address);
 void startServer();
+int map(int x, int in_min, int in_max, int out_min, int out_max);
 
 #endif // RRC_RASP_HPP

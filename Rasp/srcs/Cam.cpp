@@ -28,15 +28,6 @@ void startVideoStream(struct sockaddr_in &client_addr) {
     } else {
         // Codice del processo padre (continua l'esecuzione normalmente)
         std::cout << "Streaming avviato con PID: " << stream_pid << std::endl;
-
-        // Loop per controllare lo stato del flag di stop
-        while (!stop_streaming.load()) {
-            // Attesa per evitare un ciclo troppo rapido
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-
-        // Quando lo streaming deve essere interrotto
-        stopVideoStream();  // Ferma lo streaming
     }
 }
 
