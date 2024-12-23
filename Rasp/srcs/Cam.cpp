@@ -20,8 +20,7 @@ void startVideoStream(struct sockaddr_in &client_addr) {
     } else if (stream_pid == 0) {
         // Codice del processo figlio (streaming)
         // Usa execlp per eseguire il comando di streaming
-        execlp("rpicam-vid", "rpicam-vid", "-t", "0", "--inline", "-o", 
-               ("udp://" + std::string(inet_ntoa(client_addr.sin_addr)) + ":1234").c_str(), (char*)NULL);
+        execlp("sh", "sh", "-c", command.c_str(), (char*)NULL);
 
         // Se execlp fallisce
         std::cerr << "Errore nell'esecuzione del comando di streaming!" << std::endl;
