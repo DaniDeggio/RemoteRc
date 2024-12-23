@@ -25,6 +25,10 @@ void handleCommand(int client_socket) {
         int steering, accelerator, brake, paddle;
         sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle);
 
+		       // Stampa dei valori ricevuti
+        std::cout << "Sterzo: " << steering << ", Acceleratore: " << accelerator 
+                  << ", Freno: " << brake << ", Paddle: " << paddle << std::endl;
+
         // Cambia modalità in base al paddle
         if (paddle == 1) {
             currentMode = DRIVE;
