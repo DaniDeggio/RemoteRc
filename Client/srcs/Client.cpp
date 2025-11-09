@@ -3,12 +3,14 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <cerrno>
 
 #include <SDL2/SDL.h>
 
@@ -79,7 +81,7 @@ int main() {
         return -1;
     }
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         std::cerr << "Errore nella creazione del socket." << std::endl;
         return -1;
@@ -95,10 +97,14 @@ int main() {
     }
 
     if (connect(sock, reinterpret_cast<sockaddr *>(&serv_addr), sizeof(serv_addr)) < 0) {
-        std::cerr << "Connessione fallita." << std::endl;
-    } else {
-        std::cout << "Connesso al Raspberry Pi all'indirizzo IP: " << raspberry_ip << std::endl;
+        std::cerr << "Impossibile configurare il socket UDP: " << strerror(errno) << std::endl;
+        close(sock);
+        SDL_JoystickClose(g29);
+        SDL_Quit();
+        return -1;
     }
+
+    std::cout << "Pronto a inviare datagrammi a " << raspberry_ip << std::endl;
 
     std::thread commandThread(handleCommands, sock, g29);
     std::thread videoThread(streamVideo, raspberry_ip);

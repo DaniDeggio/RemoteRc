@@ -1,4 +1,6 @@
 #include "../include/rrc_rasp.hpp"
+#include <cerrno>
+#include <cstdio>
 
 // Funzione di mappatura di un valore da un intervallo all'altro
 int map(int x, int in_min, int in_max, int out_min, int out_max) {
@@ -30,34 +32,58 @@ void initializeControlSystems() {
     std::cout << "Sistema di controllo inizializzato." << std::endl;
 }
 
-void handleCommand(int client_socket) {
-    char buffer[1024] = {0};
+void handleCommand(int server_fd) {
+    char buffer[1024];
+    struct sockaddr_in client_addr{};
+    socklen_t client_len = sizeof(client_addr);
+    struct sockaddr_in last_stream_addr{};
+    bool stream_active = false;
 
-    // Inizializza i sistemi di controllo prima di accettare i comandi
     initializeControlSystems();
 
     while (true) {
-        int valread = read(client_socket, buffer, 1024);
-        if (valread <= 0) {
-            std::cout << "Client disconnected!" << std::endl;
-            stopVideoStream();
-            break;
+        client_len = sizeof(client_addr);
+        int valread = recvfrom(server_fd, buffer, sizeof(buffer) - 1, 0,
+                               reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
+        if (valread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("recvfrom failed");
+            continue;
         }
 
-        // Parse dei valori ricevuti (sterzo, acceleratore, freno, paddle)
-        int steering, accelerator, brake, paddle;
-        sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle);
+        buffer[valread] = '\0';
 
-        // Stampa dei valori ricevuti per debug
-        std::cout << "Sterzo: " << steering << ", Acceleratore: " << accelerator 
+        if (!stream_active || client_addr.sin_addr.s_addr != last_stream_addr.sin_addr.s_addr) {
+            if (stream_active) {
+                stopVideoStream();
+            }
+            startVideoStream(client_addr);
+            last_stream_addr = client_addr;
+            stream_active = true;
+
+            char client_ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+            std::cout << "Datagram dal client IP: " << client_ip << std::endl;
+        }
+
+        int steering = 0;
+        int accelerator = 0;
+        int brake = 0;
+        int paddle = 0;
+        if (sscanf(buffer, "%d %d %d %d", &steering, &accelerator, &brake, &paddle) != 4) {
+            std::cerr << "Formato dei dati non valido: " << buffer << std::endl;
+            continue;
+        }
+
+        std::cout << "Sterzo: " << steering << ", Acceleratore: " << accelerator
                   << ", Freno: " << brake << ", Paddle: " << paddle << std::endl;
 
-        // Mappatura dei valori ricevuti per il PWM
         int steeringPWM = map(steering, 0, 1999, 500, 2500);
         int motorPWM = map(accelerator, 0, 1999, 0, 1024);
         int brakePWM = map(brake, 0, 1999, 0, 1024);
 
-        // Cambia modalità in base al paddle
         if (paddle == 1) {
             currentMode = DRIVE;
             std::cout << "Modalità: DRIVE" << std::endl;
@@ -66,20 +92,16 @@ void handleCommand(int client_socket) {
             std::cout << "Modalità: REVERSE" << std::endl;
         }
 
-        // Controllo del servo (sterzo)
         pwmWrite(SERVO_PIN, steeringPWM);
 
-        // Controllo del motore (acceleratore/freno/retromarcia)
         if (brake > 0) {
-            pwmWrite(MOTOR_PIN, brakePWM);  // Se freno, applica il PWM per frenare
+            pwmWrite(MOTOR_PIN, brakePWM);
         } else {
             if (currentMode == DRIVE) {
-                pwmWrite(MOTOR_PIN, motorPWM);  // Accelerazione in modalità DRIVE
+                pwmWrite(MOTOR_PIN, motorPWM);
             } else if (currentMode == REVERSE) {
-                pwmWrite(MOTOR_PIN, 1024 - motorPWM);  // Accelerazione in modalità REVERSE
+                pwmWrite(MOTOR_PIN, 1024 - motorPWM);
             }
         }
     }
-
-    close(client_socket); // Chiudi la connessione con il client dopo la disconnessione
 }

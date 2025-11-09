@@ -29,12 +29,11 @@ extern std::atomic<bool> stop_streaming;
 extern FILE* stream_proc;  // Pointer per popen()
 
 void setupGPIO();
-void handleCommand(int client_socket);
+void handleCommand(int server_fd);
 void startVideoStream(struct sockaddr_in &client_addr);
 void stopVideoStream();
 void signalHandler(int signum);
 void setupSocket(int &server_fd, struct sockaddr_in &address);
-void acceptClientConnections(int server_fd, struct sockaddr_in &address);
 void startServer();
 int map(int x, int in_min, int in_max, int out_min, int out_max);
 

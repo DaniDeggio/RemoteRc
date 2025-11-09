@@ -8,7 +8,7 @@ std::atomic<bool> stop_streaming(false);
 FILE* stream_proc = nullptr;  // Pointer per popen()
 
 void setupSocket(int &server_fd, struct sockaddr_in &address) {
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    if ((server_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
@@ -22,37 +22,7 @@ void setupSocket(int &server_fd, struct sockaddr_in &address) {
         close(server_fd);
         exit(EXIT_FAILURE);
     }
-
-    if (listen(server_fd, 3) < 0) {
-        perror("Listen failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "Server listening on port " << PORT << std::endl;
-}
-
-void acceptClientConnections(int server_fd, struct sockaddr_in &address) {
-    int addrlen = sizeof(address);
-    int client_socket;
-
-    while (true) {
-        if ((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-            perror("Accept failed");
-            continue;
-        }
-
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(address.sin_addr), client_ip, INET_ADDRSTRLEN);
-        std::cout << "Client connected from IP: " << client_ip << std::endl;
-
-        // Avvia lo streaming video al client connesso
-        startVideoStream(std::ref(address));
-
-        // Crea un thread per gestire il client
-        std::thread client_thread(handleCommand, client_socket);
-        client_thread.detach(); // Scollega il thread per continuare ad accettare nuovi client
-    }
+    std::cout << "Server ready on UDP port " << PORT << std::endl;
 }
 
 void startServer() {
@@ -61,7 +31,7 @@ void startServer() {
 
     setupSocket(server_fd, address);  // Impostazione del socket
     setupGPIO();  // Impostazione dei pin GPIO
-    acceptClientConnections(server_fd, address);  // Accetta connessioni dai client
+    handleCommand(server_fd);
     close(server_fd);
 }
 

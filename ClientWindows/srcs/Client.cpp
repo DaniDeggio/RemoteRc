@@ -1,14 +1,15 @@
 // WINDOWS
 
 #define SDL_MAIN_HANDLED
+#include <chrono>
+#include <cstdio>
 #include <iostream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <unistd.h>
 #include <SDL2/SDL.h>
-#include <thread>
-#include <mutex>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -51,7 +52,7 @@ void handleCommands(int sock, SDL_Joystick* g29) {
             paddle = 1;  // Modalità Drive
         }
 
-        if (sock > 0) {
+        if (sock != INVALID_SOCKET) {
             std::string command = std::to_string(steering) + " " + std::to_string(accelerator) + " " +
                                   std::to_string(brake) + " " + std::to_string(paddle);
             std::cout << command << std::endl;
@@ -85,10 +86,13 @@ int main() {
         return -1;
     }
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in serv_addr;
     if (sock < 0) {
         std::cerr << "Errore nella creazione del socket." << std::endl;
+        SDL_JoystickClose(g29);
+        SDL_Quit();
+        WSACleanup();
         return -1;
     }
 
@@ -100,21 +104,22 @@ int main() {
         return -1;
     }
 
-    bool connected = false;
-    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-        std::cerr << "Connessione fallita." << std::endl;
-    } else {
-        connected = true;
-        std::cout << "Connesso al Raspberry Pi all'indirizzo IP: " << raspberry_ip << std::endl;
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR) {
+        std::cerr << "Impossibile configurare il socket UDP: " << WSAGetLastError() << std::endl;
+        closesocket(sock);
+        SDL_JoystickClose(g29);
+        SDL_Quit();
+        WSACleanup();
+        return -1;
     }
+
+    std::cout << "Pronto a inviare datagrammi a " << raspberry_ip << std::endl;
 
     // Avvia il thread per inviare i comandi al Raspberry Pi
     std::thread commandThread(handleCommands, sock, g29);
-    commandThread.detach();
 
     // Avvia il thread per lo streaming video tramite ffplay
     std::thread videoThread(streamVideo, raspberry_ip);
-    videoThread.detach();
 
     // Ciclo principale per gestire gli eventi
     while (running) {
@@ -131,7 +136,12 @@ int main() {
 
     // Chiudi tutto correttamente
     running = false;
-    commandThread.join();  // Attende la chiusura del thread dei comandi
+    if (commandThread.joinable()) {
+        commandThread.join();
+    }
+    if (videoThread.joinable()) {
+        videoThread.join();
+    }
     SDL_JoystickClose(g29);
     closesocket(sock);
     SDL_Quit();
