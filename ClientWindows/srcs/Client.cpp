@@ -1,3 +1,5 @@
+// WINDOWS
+
 #define SDL_MAIN_HANDLED
 #include <iostream>
 #include <string>
@@ -28,20 +30,21 @@ void streamVideo(const std::string& raspberry_ip) {
 
 // Funzione per inviare comandi al Raspberry Pi in un thread separato
 void handleCommands(int sock, SDL_Joystick* g29) {
+	int steering, accelerator, brake, paddle;
     while (running) {
         std::lock_guard<std::mutex> lock(commandMutex);  // Lock per evitare problemi di concorrenza
         SDL_JoystickUpdate();
 
-        int steering = SDL_JoystickGetAxis(g29, 0);  // Asse dello sterzo
+        steering = SDL_JoystickGetAxis(g29, 0);  // Asse dello sterzo
         steering = (steering + 32767) / 32.767;      // Normalizza tra 0 e 2000
 
-        int accelerator = SDL_JoystickGetAxis(g29, 2);  // Acceleratore (pedale destro)
+        accelerator = SDL_JoystickGetAxis(g29, 2);  // Acceleratore (pedale destro)
         accelerator = (accelerator + 32767) / 32.767;
 
-        int brake = SDL_JoystickGetAxis(g29, 3);  // Freno (pedale sinistro)
+        brake = SDL_JoystickGetAxis(g29, 3);  // Freno (pedale sinistro)
         brake = (brake + 32767) / 32.767;
 
-        int paddle = 0;
+        paddle = 0;
         if (SDL_JoystickGetButton(g29, 4)) {
             paddle = -1;  // Modalità Reverse
         } else if (SDL_JoystickGetButton(g29, 5)) {
