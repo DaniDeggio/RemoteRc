@@ -17,6 +17,11 @@
 #define PORT 8080       // Porta utilizzata
 #define VIDEO_PORT 1234 // Porta per il flusso video
 
+constexpr int AXIS_STEERING = 0;
+constexpr int AXIS_ACCELERATOR = 1;
+constexpr int AXIS_BRAKE = 2;
+constexpr int AXIS_MAX_VALUE = 2000;
+
 std::mutex commandMutex;
 bool running = true;
 
@@ -38,14 +43,26 @@ void handleCommands(int sock, SDL_Joystick *g29) {
         std::lock_guard<std::mutex> lock(commandMutex);
         SDL_JoystickUpdate();
 
-        steering = SDL_JoystickGetAxis(g29, 0);
+    steering = SDL_JoystickGetAxis(g29, AXIS_STEERING);
         steering = (steering + 32767) / 32.767; // Normalizza tra 0 e 2000
 
-        accelerator = SDL_JoystickGetAxis(g29, 2);
+    accelerator = SDL_JoystickGetAxis(g29, AXIS_ACCELERATOR);
         accelerator = (accelerator + 32767) / 32.767;
+        accelerator = AXIS_MAX_VALUE - accelerator;
+        if (accelerator < 0) {
+            accelerator = 0;
+        } else if (accelerator > AXIS_MAX_VALUE) {
+            accelerator = AXIS_MAX_VALUE;
+        }
 
-        brake = SDL_JoystickGetAxis(g29, 3);
+        brake = SDL_JoystickGetAxis(g29, AXIS_BRAKE);
         brake = (brake + 32767) / 32.767;
+        brake = AXIS_MAX_VALUE - brake;
+        if (brake < 0) {
+            brake = 0;
+        } else if (brake > AXIS_MAX_VALUE) {
+            brake = AXIS_MAX_VALUE;
+        }
 
         paddle = 0;
         if (SDL_JoystickGetButton(g29, 4)) {
