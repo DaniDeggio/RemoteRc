@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <iostream>
 #include <mutex>
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <thread>
 #include <winsock2.h>
@@ -20,6 +22,14 @@ constexpr int AXIS_STEERING = 0;
 constexpr int AXIS_ACCELERATOR = 1;
 constexpr int AXIS_BRAKE = 2;
 constexpr int AXIS_MAX_VALUE = 2000;
+constexpr double RAW_AXIS_FULL_RANGE = 65535.0;
+constexpr double RAW_AXIS_HALF_RANGE = 32768.0;
+
+int normalizeAxis(int raw) {
+    const double scaled = (static_cast<double>(raw) + RAW_AXIS_HALF_RANGE) * AXIS_MAX_VALUE / RAW_AXIS_FULL_RANGE;
+    const int value = static_cast<int>(std::lround(scaled));
+    return std::clamp(value, 0, AXIS_MAX_VALUE);
+}
 
 std::mutex commandMutex;
 bool running = true;  // Variabile globale per il controllo del ciclo
@@ -45,22 +55,10 @@ void handleCommands(int sock, SDL_Joystick* g29) {
         steering = (steering + 32767) / 32.767;      // Normalizza tra 0 e 2000
 
     accelerator = SDL_JoystickGetAxis(g29, AXIS_ACCELERATOR);  // Acceleratore (pedale destro)
-        accelerator = (accelerator + 32767) / 32.767;
-        accelerator = AXIS_MAX_VALUE - accelerator;  // Inverti per avere 0 a riposo
-        if (accelerator < 0) {
-            accelerator = 0;
-        } else if (accelerator > AXIS_MAX_VALUE) {
-            accelerator = AXIS_MAX_VALUE;
-        }
+        accelerator = AXIS_MAX_VALUE - normalizeAxis(accelerator);  // Inverti per avere 0 a riposo
 
     brake = SDL_JoystickGetAxis(g29, AXIS_BRAKE);  // Freno (pedale sinistro)
-        brake = (brake + 32767) / 32.767;
-        brake = AXIS_MAX_VALUE - brake;  // Inverti per avere 0 a riposo
-        if (brake < 0) {
-            brake = 0;
-        } else if (brake > AXIS_MAX_VALUE) {
-            brake = AXIS_MAX_VALUE;
-        }
+        brake = AXIS_MAX_VALUE - normalizeAxis(brake);  // Inverti per avere 0 a riposo
 
         paddle = 0;
         if (SDL_JoystickGetButton(g29, 4)) {

@@ -6,11 +6,12 @@
 #    By: dde-giov <dde-giov@student.42roma.it>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/05/20 17:37:53 by dde-giov          #+#    #+#              #
-#    Updated: 2024/12/10 22:43:26 by dde-giov         ###   ########.fr        #
+#    Updated: 2025/11/10 04:46:58 by dde-giov         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME	= Rasp
+TEST_NAME = steering_test
 
 CC := c++
 FLAGS := -Wall -Wextra -Werror -lwiringPi
@@ -37,6 +38,7 @@ SRC :=	srcs/Cam.cpp \
 		srcs/Main.cpp \
 
 OBJS := $(addprefix $(OBJSDIR)/, $(SRC:.cpp=.o))
+TEST_OBJS := $(OBJSDIR)/tests/SteeringSweep.o
 
 all: $(NAME)
 
@@ -49,14 +51,19 @@ $(NAME): $(OBJS)
 	@$(CC) $(FLAGS) $(OBJS) $(LINKFLAGS) -o $(NAME)
 	@echo "$(GREEN)$(NAME) created [0m ✔️"
 
+test: $(TEST_OBJS)
+	@echo "$(GREEN)Compilation $(CLR_RMV)of $(YELLOW)$(TEST_NAME) $(CLR_RMV)..."
+	@$(CC) $(FLAGS) $(TEST_OBJS) $(LINKFLAGS) -o $(TEST_NAME)
+	@echo "$(GREEN)$(TEST_NAME) created [0m ✔️"
+
 clean:
 	@$(RM) $(OBJS)
 	@echo "$(RED)Deleting $(CYAN)$(NAME) $(CLR_RMV)objs ✔️"
 
 fclean: clean
-	@$(RM) $(NAME) -rf $(OBJSDIR)
+	@$(RM) $(NAME) $(TEST_NAME) -rf $(OBJSDIR)
 	@echo "$(RED)Deleting $(CYAN)$(NAME) $(CLR_RMV)binary ✔️"
 
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re test
