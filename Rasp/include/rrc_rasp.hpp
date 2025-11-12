@@ -15,8 +15,8 @@
 #include <cstdlib>  // Per usare system()
 #include <atomic>  // Aggiungi questa libreria per usare atomic
 
-#define SERVO_PIN 1
-#define MOTOR_PIN 2
+ # define SERVO_PIN 24
+#define MOTOR_PIN 1
 #define PORT 8080
 
 // Modalità di guida
