@@ -19,8 +19,8 @@ void configurePWM() {
 
     pinMode(SERVO_PIN, PWM_OUTPUT);
     pwmSetMode(PWM_MODE_MS);
-    pwmSetRange(1024);
-    pwmSetClock(192);
+    pwmSetRange(20000); // ~50Hz, 1µs resolution (clock=19)
+    pwmSetClock(19);
 }
 
 void writeServo(int value) {
@@ -35,10 +35,10 @@ int main() {
 
     configurePWM();
 
-    constexpr int SERVO_LEFT = 500;
+    constexpr int SERVO_LEFT = 1000;
     constexpr int SERVO_CENTER = 1500;
-    constexpr int SERVO_RIGHT = 2500;
-    constexpr int STEP = 25;
+    constexpr int SERVO_RIGHT = 2000;
+    constexpr int STEP = 10; // 10µs per step
 
     std::cout << "Test sterzo: CTRL+C per interrompere" << std::endl;
 
